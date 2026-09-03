@@ -1,5 +1,6 @@
 create schema public;
 
+use public;
 
 CREATE TABLE public.USUARIO (
   id bigint,
