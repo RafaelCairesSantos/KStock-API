@@ -1,0 +1,20 @@
+{
+  "name": "kstock-api",
+  "version": "1.0.0",
+  "description": "API RESTful para gerenciamento e controle de estoque, rastreamento de produtos e movimentações de inventário.",
+  "homepage": "https://github.com/RafaelCairesSantos/KStock-API#readme",
+  "bugs": {
+    "url": "https://github.com/RafaelCairesSantos/KStock-API/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/RafaelCairesSantos/KStock-API.git"
+  },
+  "license": "ISC",
+  "author": "rafael santos",
+  "type": "commonjs",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  }
+}
