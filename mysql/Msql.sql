@@ -1,60 +1,66 @@
-create schema public;
+CREATE DATABASE IF NOT EXISTS public;
 
-use public;
+USE public;
 
-CREATE TABLE public.USUARIO (
-  id bigint,
-  nome text,
-  email text,
-  senha_hash text,
-  perfil text
+CREATE TABLE USUARIO (
+  id BIGINT,
+  nome TEXT,
+  email TEXT,
+  senha_hash TEXT,
+  perfil TEXT
 );
-CREATE TABLE public.ASSINATURA (
-  id bigint,
-  usuario_id bigint,
-  plano text,
-  data_inicio text,
-  data_fim text,
-  status text
+
+CREATE TABLE ASSINATURA (
+  id BIGINT,
+  usuario_id BIGINT,
+  plano TEXT,
+  data_inicio TEXT,
+  data_fim TEXT,
+  status TEXT
 );
-CREATE TABLE public.CATEGORIA (
-  id bigint,
-  nome text,
-  descricao text
+
+CREATE TABLE CATEGORIA (
+  id BIGINT,
+  nome TEXT,
+  descricao TEXT
 );
-CREATE TABLE public.FORNECEDOR (
-  id bigint,
-  nome text,
-  cnpj text,
-  contato text,
-  endereco text
+
+CREATE TABLE FORNECEDOR (
+  id BIGINT,
+  nome TEXT,
+  cnpj TEXT,
+  contato TEXT,
+  endereco TEXT
 );
-CREATE TABLE public.PRODUTO (
-  id bigint,
-  categoria_id bigint,
-  fornecedor_id bigint,
-  nome text,
-  codigo text,
-  descricao text,
-  quantidade_atual bigint,
-  quantidade_minima bigint,
-  codigo_barras bigint
+
+CREATE TABLE PRODUTO (
+  id BIGINT,
+  categoria_id BIGINT,
+  fornecedor_id BIGINT,
+  nome TEXT,
+  codigo TEXT,
+  descricao TEXT,
+  quantidade_atual BIGINT,
+  quantidade_minima BIGINT,
+  codigo_barras BIGINT
 );
-CREATE TABLE public.MOVIMENTACAO (
-  id bigint,
-  usuario_id bigint,
-  produto_id bigint,
-  tipo text,
-  quantidade bigint,
-  data_hora timestamp with time zone,
-  observacao text
+
+CREATE TABLE MOVIMENTACAO (
+  id BIGINT,
+  usuario_id BIGINT,
+  produto_id BIGINT,
+  tipo TEXT,
+  quantidade BIGINT,
+  data_hora TIMESTAMP,
+  observacao TEXT
 );
-CREATE TABLE public.HISTORICO (
-  id bigint,
-  usuario_id bigint,
-  produto_id bigint,
-  movimentacao_id bigint,
-  data_hora timestamp with time zone,
-  tipo_operacao text,
-  descricao text
+
+CREATE TABLE HISTORICO (
+  id BIGINT,
+  usuario_id BIGINT,
+  produto_id BIGINT,
+  movimentacao_id BIGINT,
+  data_hora TIMESTAMP,
+  tipo_operacao TEXT,
+  descricao TEXT
 );
