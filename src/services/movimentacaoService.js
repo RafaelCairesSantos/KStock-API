@@ -1,4 +1,4 @@
-﻿const { withTransaction } = require('../db/connect');
+const db = require('../db/connect');
 const movimentacaoRepository = require('../repositories/movimentacaoRepository');
 const produtoRepository = require('../repositories/produtoRepository');
 const historicoRepository = require('../repositories/historicoRepository');
@@ -50,7 +50,7 @@ class MovimentacaoService {
     }
 
     // Executa toda a alteração atômica em transação gerenciada
-    const movimentacaoId = await withTransaction(async (connection) => {
+    const movimentacaoId = await db.withTransaction(async (connection) => {
       // 1. Obter produto com lock exclusivo FOR UPDATE
       const produto = await produtoRepository.findByIdForUpdate(produto_id, connection);
       if (!produto) {
