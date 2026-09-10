@@ -104,15 +104,6 @@ docker-compose up -d --build
 
 ---
 
-## 🧪 Testes Automatizados
-
-Para rodar a suíte completa de testes de regras de negócio, autenticação e contratos HTTP:
-```bash
-npm test
-```
-
----
-
 ## 📑 Documentação da API (Swagger / OpenAPI)
 
 Com o servidor rodando, acesse a interface interativa Swagger no navegador:
