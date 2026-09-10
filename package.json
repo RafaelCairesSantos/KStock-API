@@ -18,8 +18,7 @@
     "start": "node src/index.js",
     "dev": "nodemon src/index.js",
     "migrate": "node src/db/migrate.js",
-    "seed": "node src/db/seed.js",
-    "test": "jest --runInBand --detectOpenHandles --forceExit"
+    "seed": "node src/db/seed.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
@@ -33,15 +32,7 @@
     "swagger-ui-express": "^5.0.1"
   },
   "devDependencies": {
-    "jest": "^29.7.0",
-    "nodemon": "^3.1.9",
-    "supertest": "^7.0.0"
-  },
-  "jest": {
-    "testEnvironment": "node",
-    "testMatch": [
-      "**/tests/**/*.test.js"
-    ],
-    "verbose": true
+    "nodemon": "^3.1.9"
   }
 }
+
