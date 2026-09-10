@@ -27,6 +27,19 @@ async function startServer() {
     console.log('====================================================');
   });
 
+  server.on('error', (err) => {
+    if (err.code === 'EADDRINUSE') {
+      console.error(`\n❌ Erro: A porta ${PORT} já está em uso.`);
+      console.error('💡 Dica: Pode haver um container Docker ou outro processo utilizando esta porta.');
+      console.error('   - Para alterar a porta, modifique a variável PORT no arquivo .env (ex: PORT=3001)');
+      console.error('   - Para parar o container Docker da API: docker stop kstock-api\n');
+    } else {
+      console.error('❌ Erro no servidor HTTP:', err);
+    }
+    process.exit(1);
+  });
+
+
   // Tratamento de encerramento gracioso (Graceful Shutdown)
   const shutdown = (signal) => {
     console.log(`\n🛑 Sinal ${signal} recebido. Encerrando servidor graciosamente...`);
