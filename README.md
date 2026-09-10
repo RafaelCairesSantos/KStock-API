@@ -14,7 +14,7 @@
 - **Controle de Acesso**: RBAC (Role-Based Access Control) com perfis `ADMIN`, `GERENTE` e `OPERADOR`
 - **Uploads**: Multer para upload e validação de imagens de produtos
 - **Documentação Interativa**: Swagger UI / OpenAPI 3.0
-- **Testes Automatizados**: Jest e Supertest
+
 
 ---
 
