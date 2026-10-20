@@ -69,6 +69,16 @@ class UsuarioRepository {
     return this.findById(id);
   }
 
+  async updateResetToken(id, token, expiraEm) {
+    await query('UPDATE usuario SET senha_reset_token = ?, reset_token_expira = ? WHERE id = ?', [token, expiraEm, id]);
+    return true;
+  }
+
+  async findByResetToken(token) {
+    const [rows] = await query('SELECT * FROM usuario WHERE senha_reset_token = ? AND reset_token_expira > NOW()', [token]);
+    return rows[0] || null;
+  }
+
   async updateSenha(id, senha_hash) {
     await query('UPDATE usuario SET senha_hash = ? WHERE id = ?', [senha_hash, id]);
     return true;

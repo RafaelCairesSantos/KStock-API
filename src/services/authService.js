@@ -1,4 +1,5 @@
-﻿const bcrypt = require('bcryptjs');
+﻿const crypto = require('crypto');
+const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const usuarioRepository = require('../repositories/usuarioRepository');
 const assinaturaRepository = require('../repositories/assinaturaRepository');
@@ -98,6 +99,26 @@ class AuthService {
       user,
       assinatura
     };
+  }
+
+  async solicitarReset({ email }) {
+    const user = await usuarioRepository.findByEmail(email);
+    if (user) {
+      const token = crypto.randomBytes(32).toString('hex');
+      const expiraEm = new Date(Date.now() + 3600000).toISOString().slice(0, 19).replace('T', ' ');
+      await usuarioRepository.updateResetToken(user.id, token, expiraEm);
+    }
+    return { message: 'Se o e-mail estiver cadastrado, você receberá instruções.' };
+  }
+
+  async confirmarReset({ token, novaSenha }) {
+    const user = await usuarioRepository.findByResetToken(token);
+    if (!user) throw new AppError('Token inválido ou expirado.', 400, 'INVALID_TOKEN');
+    if (!novaSenha || novaSenha.length < 6) throw new AppError('Senha muito curta.', 400, 'WEAK_PASSWORD');
+    const salt = await bcrypt.genSalt(10);
+    await usuarioRepository.updateSenha(user.id, await bcrypt.hash(novaSenha, salt));
+    await usuarioRepository.updateResetToken(user.id, null, null);
+    return { message: 'Senha redefinida com sucesso.' };
   }
 
   generateToken(user) {

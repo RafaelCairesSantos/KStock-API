@@ -27,6 +27,20 @@ class AuthController {
     }
   }
 
+  async solicitarReset(req, res, next) {
+    try {
+      const result = await authService.solicitarReset(req.body);
+      return res.status(200).json(result);
+    } catch (error) { next(error); }
+  }
+
+  async confirmarReset(req, res, next) {
+    try {
+      const result = await authService.confirmarReset(req.body);
+      return res.status(200).json(result);
+    } catch (error) { next(error); }
+  }
+
   async me(req, res, next) {
     try {
       const profile = await authService.getProfile(req.user.id);
