@@ -169,6 +169,30 @@ class ProdutoRepository {
     return this.findById(id);
   }
 
+    async findComSaidasPeriodo({ dias = 30, produto_id = null } = {}) {
+    const params = [parseInt(dias, 10)];
+    let sql = `
+      SELECT p.id, p.nome, p.codigo, p.quantidade_atual, p.quantidade_minima,
+             COALESCE(s.total_saidas, 0) AS total_saidas
+      FROM produto p
+      LEFT JOIN (
+        SELECT produto_id, SUM(quantidade) AS total_saidas
+        FROM movimentacao
+        WHERE tipo = 'SAIDA'
+          AND data_hora >= DATE_SUB(NOW(), INTERVAL ? DAY)
+        GROUP BY produto_id
+      ) s ON s.produto_id = p.id
+    `;
+
+    if (produto_id) {
+      sql += ' WHERE p.id = ?';
+      params.push(produto_id);
+    }
+
+    const [rows] = await query(sql, params);
+    return rows;
+  }
+
   async countMovimentacoes(id) {
     const [rows] = await query('SELECT COUNT(*) as total FROM movimentacao WHERE produto_id = ?', [id]);
     return rows[0].total;
