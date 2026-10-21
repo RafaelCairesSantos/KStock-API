@@ -33,6 +33,66 @@ class ProdutoService {
     return produto;
   }
 
+    _normalizarPeriodo(dias, limiteDias) {
+    return {
+      dias: Math.max(1, Math.min(365, parseInt(dias, 10) || 30)),
+      limiar: Math.max(1, Math.min(365, parseInt(limiteDias, 10) || 7))
+    };
+  }
+
+  _calcularPrevisao(row, dias, limiar) {
+    const saldo = Number(row.quantidade_atual);
+    const totalSaidas = Number(row.total_saidas);
+    const mediaDiaria = totalSaidas / dias;
+
+    const diasAteRuptura = mediaDiaria > 0
+      ? Math.floor(Math.max(0, saldo) / mediaDiaria)
+      : null;
+
+    const dataPrevista = diasAteRuptura !== null
+      ? new Date(Date.now() + diasAteRuptura * 86400000).toISOString().split('T')[0]
+      : null;
+
+    return {
+      produto_id: row.id,
+      nome: row.nome,
+      codigo: row.codigo,
+      quantidade_atual: saldo,
+      quantidade_minima: Number(row.quantidade_minima),
+      periodo_analisado_dias: dias,
+      total_saidas_periodo: totalSaidas,
+      media_diaria_saidas: Number(mediaDiaria.toFixed(2)),
+      dias_ate_ruptura: diasAteRuptura,
+      data_prevista_ruptura: dataPrevista,
+      risco: diasAteRuptura !== null && diasAteRuptura <= limiar ? 'ALTO' : 'NORMAL'
+    };
+  }
+
+  async getPrevisaoRuptura(id, query = {}) {
+    await this.getProdutoById(id); // garante o 404 se o produto não existir
+    const { dias, limiar } = this._normalizarPeriodo(query.dias, query.limite_dias);
+
+    const rows = await produtoRepository.findComSaidasPeriodo({ dias, produto_id: id });
+    return this._calcularPrevisao(rows[0], dias, limiar);
+  }
+
+  async getProdutosEmRisco(query = {}) {
+    const { dias, limiar } = this._normalizarPeriodo(query.dias, query.limite_dias);
+
+    const rows = await produtoRepository.findComSaidasPeriodo({ dias });
+    const emRisco = rows
+      .map((row) => this._calcularPrevisao(row, dias, limiar))
+      .filter((p) => p.risco === 'ALTO')
+      .sort((a, b) => a.dias_ate_ruptura - b.dias_ate_ruptura);
+
+    return {
+      total: emRisco.length,
+      periodo_analisado_dias: dias,
+      limite_dias_alerta: limiar,
+      data: emRisco
+    };
+  }
+
   async getAlertasEstoque() {
     const produtos = await produtoRepository.findAll({
       alerta_estoque: true,
