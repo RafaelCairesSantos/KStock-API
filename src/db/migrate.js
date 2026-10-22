@@ -38,6 +38,8 @@ async function runMigrations() {
         PRIMARY KEY (id)
       ) ENGINE=InnoDB;
     `);
+    await connection.query(`ALTER TABLE usuario ADD COLUMN IF NOT EXISTS senha_reset_token VARCHAR(255) NULL;`);
+    await connection.query(`ALTER TABLE usuario ADD COLUMN IF NOT EXISTS reset_token_expira DATETIME NULL;`);
     console.log('   Tabela "usuario" verificada/criada.');
 
     // 2. Tabela ASSINATURA
