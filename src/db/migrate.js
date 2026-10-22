@@ -1,4 +1,4 @@
-﻿const mysql = require('mysql2/promise');
+const mysql = require('mysql2/promise');
 require('dotenv').config();
 
 async function runMigrations() {
@@ -32,14 +32,30 @@ async function runMigrations() {
         nome VARCHAR(150) NOT NULL,
         email VARCHAR(191) NOT NULL UNIQUE,
         senha_hash VARCHAR(255) NOT NULL,
+        senha_reset_token VARCHAR(255) NULL,
+        reset_token_expira DATETIME NULL,
         perfil ENUM('ADMIN', 'GERENTE', 'OPERADOR') NOT NULL DEFAULT 'OPERADOR',
         criado_em DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
         atualizado_em DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         PRIMARY KEY (id)
       ) ENGINE=InnoDB;
     `);
-    await connection.query(`ALTER TABLE usuario ADD COLUMN IF NOT EXISTS senha_reset_token VARCHAR(255) NULL;`);
-    await connection.query(`ALTER TABLE usuario ADD COLUMN IF NOT EXISTS reset_token_expira DATETIME NULL;`);
+
+    try {
+      await connection.query(`ALTER TABLE usuario ADD COLUMN senha_reset_token VARCHAR(255) NULL;`);
+    } catch (e) {
+      if (e.errno !== 1060 && e.code !== 'ER_DUP_FIELDNAME') {
+        console.warn('   Aviso ao adicionar coluna senha_reset_token:', e.message);
+      }
+    }
+
+    try {
+      await connection.query(`ALTER TABLE usuario ADD COLUMN reset_token_expira DATETIME NULL;`);
+    } catch (e) {
+      if (e.errno !== 1060 && e.code !== 'ER_DUP_FIELDNAME') {
+        console.warn('   Aviso ao adicionar coluna reset_token_expira:', e.message);
+      }
+    }
     console.log('   Tabela "usuario" verificada/criada.');
 
     // 2. Tabela ASSINATURA

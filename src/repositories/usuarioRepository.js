@@ -1,4 +1,4 @@
-﻿const { query } = require('../db/connect');
+const { query } = require('../db/connect');
 
 class UsuarioRepository {
   async findByEmail(email) {
@@ -70,13 +70,34 @@ class UsuarioRepository {
   }
 
   async updateResetToken(id, token, expiraEm) {
-    await query('UPDATE usuario SET senha_reset_token = ?, reset_token_expira = ? WHERE id = ?', [token, expiraEm, id]);
-    return true;
+    try {
+      await query('UPDATE usuario SET senha_reset_token = ?, reset_token_expira = ? WHERE id = ?', [token, expiraEm, id]);
+      return true;
+    } catch (err) {
+      if (err.errno === 1054 || err.code === 'ER_BAD_FIELD_ERROR') {
+        try {
+          await query('ALTER TABLE usuario ADD COLUMN senha_reset_token VARCHAR(255) NULL AFTER senha_hash');
+        } catch (_) {}
+        try {
+          await query('ALTER TABLE usuario ADD COLUMN reset_token_expira DATETIME NULL AFTER senha_reset_token');
+        } catch (_) {}
+        await query('UPDATE usuario SET senha_reset_token = ?, reset_token_expira = ? WHERE id = ?', [token, expiraEm, id]);
+        return true;
+      }
+      throw err;
+    }
   }
 
   async findByResetToken(token) {
-    const [rows] = await query('SELECT * FROM usuario WHERE senha_reset_token = ? AND reset_token_expira > NOW()', [token]);
-    return rows[0] || null;
+    try {
+      const [rows] = await query('SELECT * FROM usuario WHERE senha_reset_token = ? AND reset_token_expira > NOW()', [token]);
+      return rows[0] || null;
+    } catch (err) {
+      if (err.errno === 1054 || err.code === 'ER_BAD_FIELD_ERROR') {
+        return null;
+      }
+      throw err;
+    }
   }
 
   async updateSenha(id, senha_hash) {

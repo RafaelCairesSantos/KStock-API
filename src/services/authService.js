@@ -1,8 +1,9 @@
-﻿const crypto = require('crypto');
+const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const usuarioRepository = require('../repositories/usuarioRepository');
 const assinaturaRepository = require('../repositories/assinaturaRepository');
+const emailService = require('./emailService');
 const AppError = require('../utils/appError');
 const { isValidEmail } = require('../middlewares/validate');
 
@@ -103,12 +104,34 @@ class AuthService {
 
   async solicitarReset({ email }) {
     const user = await usuarioRepository.findByEmail(email);
+    let token = null;
+    let previewUrl = null;
     if (user) {
-      const token = crypto.randomBytes(32).toString('hex');
+      token = crypto.randomBytes(32).toString('hex');
       const expiraEm = new Date(Date.now() + 3600000).toISOString().slice(0, 19).replace('T', ' ');
       await usuarioRepository.updateResetToken(user.id, token, expiraEm);
+
+      console.log('\n====================================================');
+      console.log(`🔑 [REDEFINIÇÃO DE SENHA]`);
+      console.log(`📧 E-mail: ${email}`);
+      console.log(`🎟️  Token: ${token}`);
+      console.log('====================================================\n');
+
+      // Dispara o e-mail via serviço SMTP
+      const emailResult = await emailService.sendPasswordResetEmail({
+        email: user.email,
+        nome: user.nome,
+        token,
+      });
+
+      if (emailResult && emailResult.previewUrl) {
+        previewUrl = emailResult.previewUrl;
+      }
     }
-    return { message: 'Se o e-mail estiver cadastrado, você receberá instruções.' };
+    return {
+      message: 'Se o e-mail estiver cadastrado, você receberá instruções por e-mail.',
+      ...(process.env.NODE_ENV !== 'production' && token ? { devToken: token, ...(previewUrl ? { previewUrl } : {}) } : {})
+    };
   }
 
   async confirmarReset({ token, novaSenha }) {
