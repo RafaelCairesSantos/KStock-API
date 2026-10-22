@@ -11,6 +11,24 @@ class ProdutoController {
     }
   }
 
+    async previsaoRuptura(req, res, next) {
+    try {
+      const previsao = await produtoService.getPrevisaoRuptura(req.params.id, req.query);
+      return res.status(200).json(previsao);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async riscoRuptura(req, res, next) {
+    try {
+      const result = await produtoService.getProdutosEmRisco(req.query);
+      return res.status(200).json(result);
+    } catch (error) {
+      next(error);
+    }
+  }
+
   async alertas(req, res, next) {
     try {
       const produtos = await produtoService.getAlertasEstoque();

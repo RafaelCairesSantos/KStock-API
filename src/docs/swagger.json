@@ -32,7 +32,10 @@
             "type": "object",
             "properties": {
               "code": { "type": "string", "example": "RESOURCE_NOT_FOUND" },
-              "message": { "type": "string", "example": "Recurso não encontrado." },
+              "message": {
+                "type": "string",
+                "example": "Recurso não encontrado."
+              },
               "details": { "type": "object" }
             }
           }
@@ -88,7 +91,9 @@
           }
         },
         "responses": {
-          "200": { "description": "Login realizado com sucesso e token retornado." },
+          "200": {
+            "description": "Login realizado com sucesso e token retornado."
+          },
           "401": { "description": "Credenciais inválidas." }
         }
       }
@@ -110,12 +115,32 @@
         "summary": "Listar produtos com filtros e paginação",
         "security": [{ "bearerAuth": [] }],
         "parameters": [
-          { "name": "page", "in": "query", "schema": { "type": "integer", "default": 1 } },
-          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 20 } },
+          {
+            "name": "page",
+            "in": "query",
+            "schema": { "type": "integer", "default": 1 }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": { "type": "integer", "default": 20 }
+          },
           { "name": "search", "in": "query", "schema": { "type": "string" } },
-          { "name": "categoria_id", "in": "query", "schema": { "type": "integer" } },
-          { "name": "fornecedor_id", "in": "query", "schema": { "type": "integer" } },
-          { "name": "alerta_estoque", "in": "query", "schema": { "type": "boolean" } }
+          {
+            "name": "categoria_id",
+            "in": "query",
+            "schema": { "type": "integer" }
+          },
+          {
+            "name": "fornecedor_id",
+            "in": "query",
+            "schema": { "type": "integer" }
+          },
+          {
+            "name": "alerta_estoque",
+            "in": "query",
+            "schema": { "type": "boolean" }
+          }
         ],
         "responses": {
           "200": { "description": "Lista paginada de produtos." }
@@ -137,10 +162,16 @@
                   "fornecedor_id": { "type": "integer", "example": 1 },
                   "nome": { "type": "string", "example": "Fone Bluetooth Pro" },
                   "codigo": { "type": "string", "example": "FON-BT-01" },
-                  "descricao": { "type": "string", "example": "Fone com cancelamento de ruído" },
+                  "descricao": {
+                    "type": "string",
+                    "example": "Fone com cancelamento de ruído"
+                  },
                   "quantidade_atual": { "type": "integer", "example": 25 },
                   "quantidade_minima": { "type": "integer", "example": 5 },
-                  "codigo_barras": { "type": "string", "example": "7891234567890" }
+                  "codigo_barras": {
+                    "type": "string",
+                    "example": "7891234567890"
+                  }
                 }
               }
             }
@@ -170,8 +201,19 @@
         "parameters": [
           { "name": "page", "in": "query", "schema": { "type": "integer" } },
           { "name": "limit", "in": "query", "schema": { "type": "integer" } },
-          { "name": "produto_id", "in": "query", "schema": { "type": "integer" } },
-          { "name": "tipo", "in": "query", "schema": { "type": "string", "enum": ["ENTRADA", "SAIDA", "AJUSTE"] } }
+          {
+            "name": "produto_id",
+            "in": "query",
+            "schema": { "type": "integer" }
+          },
+          {
+            "name": "tipo",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": ["ENTRADA", "SAIDA", "AJUSTE"]
+            }
+          }
         ],
         "responses": {
           "200": { "description": "Lista de movimentações." }
@@ -190,16 +232,25 @@
                 "required": ["produto_id", "tipo", "quantidade"],
                 "properties": {
                   "produto_id": { "type": "integer", "example": 1 },
-                  "tipo": { "type": "string", "enum": ["ENTRADA", "SAIDA", "AJUSTE"], "example": "ENTRADA" },
+                  "tipo": {
+                    "type": "string",
+                    "enum": ["ENTRADA", "SAIDA", "AJUSTE"],
+                    "example": "ENTRADA"
+                  },
                   "quantidade": { "type": "integer", "example": 10 },
-                  "observacao": { "type": "string", "example": "Recebimento de lote do fornecedor" }
+                  "observacao": {
+                    "type": "string",
+                    "example": "Recebimento de lote do fornecedor"
+                  }
                 }
               }
             }
           }
         },
         "responses": {
-          "201": { "description": "Movimentação executada com sucesso e estoque atualizado." },
+          "201": {
+            "description": "Movimentação executada com sucesso e estoque atualizado."
+          },
           "422": { "description": "Saldo insuficiente em estoque." }
         }
       }
@@ -211,6 +262,62 @@
         "security": [{ "bearerAuth": [] }],
         "responses": {
           "200": { "description": "Registros de auditoria." }
+        }
+      }
+    },
+
+    "/api/v1/produtos/{id}/previsao-ruptura": {
+      "get": {
+        "tags": ["Produtos"],
+        "summary": "Previsão de ruptura de estoque de um produto",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "integer" }
+          },
+          {
+            "name": "dias",
+            "in": "query",
+            "description": "Período analisado (1-365, padrão 30)",
+            "schema": { "type": "integer", "default": 30 }
+          },
+          {
+            "name": "limite_dias",
+            "in": "query",
+            "description": "Dias até a ruptura para risco ALTO (padrão 7)",
+            "schema": { "type": "integer", "default": 7 }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Previsão calculada" },
+          "404": { "description": "Produto não encontrado" }
+        }
+      }
+    },
+    "/api/v1/produtos/risco-ruptura": {
+      "get": {
+        "tags": ["Produtos"],
+        "summary": "Lista produtos com risco ALTO de ruptura",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "dias",
+            "in": "query",
+            "schema": { "type": "integer", "default": 30 }
+          },
+          {
+            "name": "limite_dias",
+            "in": "query",
+            "schema": { "type": "integer", "default": 7 }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Produtos em risco, ordenados do mais urgente"
+          }
         }
       }
     }

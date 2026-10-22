@@ -10,7 +10,9 @@ router.use(verifyJWT);
 
 router.get('/', produtoController.list);
 router.get('/alerta-estoque', produtoController.alertas);
+router.get('/risco-ruptura', produtoController.riscoRuptura); 
 router.get('/:id', produtoController.getById);
+router.get('/:id/previsao-ruptura', produtoController.previsaoRuptura);
 router.post(
   '/',
   verifyRole('ADMIN', 'GERENTE'),
