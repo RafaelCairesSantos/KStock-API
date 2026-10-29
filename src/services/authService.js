@@ -102,12 +102,38 @@ class AuthService {
     };
   }
 
+  async verificarResetCode({ email, codigo }) {
+    if (!email || !codigo) throw new AppError('E-mail e código são obrigatórios.', 400, 'MISSING_FIELDS');
+    const user = await usuarioRepository.findByEmail(email);
+    if (!user) throw new AppError('Código inválido ou expirado.', 400, 'INVALID_CODE');
+    if (!user.senha_reset_token) throw new AppError('Código inválido ou expirado.', 400, 'INVALID_CODE');
+    const tokenExp = new Date(user.reset_token_expira || 0);
+    if (tokenExp < new Date()) throw new AppError('Código expirado.', 400, 'CODE_EXPIRED');
+    if (user.senha_reset_token !== codigo) throw new AppError('Código inválido.', 400, 'INVALID_CODE');
+    return { message: 'Código validado com sucesso.', valid: true };
+  }
+
+  async confirmarResetFront({ email, codigo, novaSenha }) {
+    if (!email || !codigo) throw new AppError('E-mail e código são obrigatórios.', 400, 'MISSING_FIELDS');
+    if (!novaSenha || novaSenha.length < 6) throw new AppError('Senha muito curta.', 400, 'WEAK_PASSWORD');
+    const user = await usuarioRepository.findByEmail(email);
+    if (!user) throw new AppError('Código inválido ou expirado.', 400, 'INVALID_TOKEN');
+    if (!user.senha_reset_token || user.senha_reset_token !== codigo) throw new AppError('Código inválido.', 400, 'INVALID_TOKEN');
+    const tokenExp = new Date(user.reset_token_expira || 0);
+    if (tokenExp < new Date()) throw new AppError('Código expirado.', 400, 'CODE_EXPIRED');
+    const salt = await bcrypt.genSalt(10);
+    await usuarioRepository.updateSenha(user.id, await bcrypt.hash(novaSenha, salt));
+    await usuarioRepository.updateResetToken(user.id, null, null);
+    return { message: 'Senha redefinida com sucesso.' };
+  }
+
   async solicitarReset({ email }) {
     const user = await usuarioRepository.findByEmail(email);
-    let token = null;
+    let codigo = null;
     let previewUrl = null;
     if (user) {
-      token = crypto.randomBytes(32).toString('hex');
+      // Gera um codigo numerico de 6 digitos (em vez de token hex)
+      codigo = crypto.randomInt(100000, 999999).toString();
       const expiraEm = new Date(Date.now() + 3600000).toISOString().slice(0, 19).replace('T', ' ');
       await usuarioRepository.updateResetToken(user.id, token, expiraEm);
 
@@ -117,11 +143,11 @@ class AuthService {
       console.log(`🎟️  Token: ${token}`);
       console.log('====================================================\n');
 
-      // Dispara o e-mail via serviço SMTP
+      // Dispara o e-mail via servico SMTP
       const emailResult = await emailService.sendPasswordResetEmail({
         email: user.email,
         nome: user.nome,
-        token,
+        token: codigo,
       });
 
       if (emailResult && emailResult.previewUrl) {
@@ -130,7 +156,7 @@ class AuthService {
     }
     return {
       message: 'Se o e-mail estiver cadastrado, você receberá instruções por e-mail.',
-      ...(process.env.NODE_ENV !== 'production' && token ? { devToken: token, ...(previewUrl ? { previewUrl } : {}) } : {})
+      ...(process.env.NODE_ENV === 'development' && codigo ? { devCode: codigo, ...(previewUrl ? { previewUrl } : {}) } : {})
     };
   }
 

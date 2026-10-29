@@ -41,6 +41,20 @@ class AuthController {
     } catch (error) { next(error); }
   }
 
+  async verificarResetCode(req, res, next) {
+    try {
+      const result = await authService.verificarResetCode(req.body);
+      return res.status(200).json(result);
+    } catch (error) { next(error); }
+  }
+
+  async confirmarResetFront(req, res, next) {
+    try {
+      const result = await authService.confirmarResetFront(req.body);
+      return res.status(200).json(result);
+    } catch (error) { next(error); }
+  }
+
   async me(req, res, next) {
     try {
       const profile = await authService.getProfile(req.user.id);

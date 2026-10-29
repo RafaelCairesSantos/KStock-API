@@ -17,7 +17,7 @@ class EmailService {
     const port = parseInt(process.env.SMTP_PORT || '587', 10);
     const user = process.env.SMTP_USER;
     const pass = process.env.SMTP_PASS;
-    const secure = process.env.SMTP_SECURE === 'true' || port === 465;
+    const secure = process.env.SMTP_SECURE === 'true' ? true : (port === 465);
 
     // Se as credenciais SMTP foram preenchidas no .env, usa o servidor configurado
     if (host && user && pass) {

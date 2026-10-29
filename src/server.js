@@ -15,7 +15,15 @@ const app = express();
 app.use(helmet({
   contentSecurityPolicy: false // Permite renderização correta do Swagger UI
 }));
-app.use(cors());
+app.use(cors({
+  origin: [
+    'http://localhost:3000',
+    'http://localhost:5173',
+    'http://localhost:8080',
+    'http://10.89.240.62:3000'
+  ],
+  credentials: true
+}));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
