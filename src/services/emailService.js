@@ -44,7 +44,7 @@ class EmailService {
   }
 
   /**
-   * Dispara e-mail de recuperação de senha com link e token
+   * Dispara e-mail de recuperação de senha com link e codigo
    */
   async sendPasswordResetEmail({ email, nome, token }) {
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
@@ -83,10 +83,10 @@ class EmailService {
                 </a>
               </div>
 
-              <!-- Token manual -->
+              <!-- Codigo manual -->
               <div style="background-color: #0f172a; border: 1px solid #334155; border-radius: 8px; padding: 16px; margin: 24px 0;">
                 <p style="margin: 0 0 8px; font-size: 12px; color: #94a3b8; font-weight: 500;">
-                  Ou informe este token manualmente na tela de recuperação:
+                  Ou informe este codigo manualmente na tela de recuperacao:
                 </p>
                 <div style="font-family: monospace; font-size: 13px; background-color: #1e293b; color: #a5b4fc; padding: 10px 12px; border-radius: 6px; word-break: break-all; border: 1px dashed #4f46e5;">
                   ${token}
@@ -94,7 +94,7 @@ class EmailService {
               </div>
 
               <p style="margin: 0 0 12px; font-size: 13px; line-height: 1.5; color: #94a3b8;">
-                ⚠️ <strong>Atenção:</strong> Este link e token são válidos por <strong>1 hora</strong>. Se você não solicitou a redefinição de senha, ignore este e-mail. Sua senha permanecerá inalterada.
+                ⚠️ <strong>Atenção:</strong> Este link e codigo são válidos por <strong>1 hora</strong>. Se você não solicitou a redefinição de senha, ignore este e-mail. Sua senha permanecerá inalterada.
               </p>
             </td>
           </tr>
@@ -109,7 +109,7 @@ class EmailService {
       </div>
     `;
 
-    const textContent = `Olá, ${nome || 'Usuário'}!\n\nPara redefinir sua senha no KeepStock, acesse o link:\n${resetUrl}\n\nOu utilize o token: ${token}\n\nEste token expira em 1 hora.\nSe você não solicitou, ignore esta mensagem.`;
+    const textContent = `Olá, ${nome || 'Usuário'}!\n\nPara redefinir sua senha no KeepStock, acesse o link:\n${resetUrl}\n\nOu utilize o codigo: ${token}\n\nEste codigo expira em 1 hora.\nSe você não solicitou, ignore esta mensagem.`;
 
     // 1. Envio via MailerSend REST API (apenas se for chave de API 'mlsn.')
     const isApiKey = process.env.MAILERSEND_API_KEY && process.env.MAILERSEND_API_KEY.startsWith('mlsn.');

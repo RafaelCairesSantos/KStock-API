@@ -135,12 +135,12 @@ class AuthService {
       // Gera um codigo numerico de 6 digitos (em vez de token hex)
       codigo = crypto.randomInt(100000, 999999).toString();
       const expiraEm = new Date(Date.now() + 3600000).toISOString().slice(0, 19).replace('T', ' ');
-      await usuarioRepository.updateResetToken(user.id, token, expiraEm);
+      await usuarioRepository.updateResetToken(user.id, codigo, expiraEm);
 
       console.log('\n====================================================');
       console.log(`🔑 [REDEFINIÇÃO DE SENHA]`);
       console.log(`📧 E-mail: ${email}`);
-      console.log(`🎟️  Token: ${token}`);
+      console.log(`🔑 Codigo: ${codigo}`);
       console.log('====================================================\n');
 
       // Dispara o e-mail via servico SMTP
@@ -155,7 +155,7 @@ class AuthService {
       }
     }
     return {
-      message: 'Se o e-mail estiver cadastrado, você receberá instruções por e-mail.',
+      message: 'Se o e-mail estiver cadastrado, você receberá um código de verificação.',
       ...(process.env.NODE_ENV === 'development' && codigo ? { devCode: codigo, ...(previewUrl ? { previewUrl } : {}) } : {})
     };
   }
