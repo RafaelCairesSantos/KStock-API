@@ -6,6 +6,52 @@ class EmailService {
   }
 
   /**
+   * Verifica se a string informada é uma credencial real (não é placeholder de exemplo)
+   */
+  isRealCredential(val) {
+    if (!val || typeof val !== 'string') return false;
+    const lower = val.toLowerCase().trim();
+    return (
+      lower.length > 0 &&
+      !lower.includes('seu_email') &&
+      !lower.includes('sua_senha') &&
+      !lower.includes('exemplo') &&
+      !lower.includes('16_digitos') &&
+      !lower.includes('seu-email')
+    );
+  }
+
+  /**
+   * Verifica se o ambiente possui credenciais SMTP válidas
+   */
+  hasRealSmtpConfig() {
+    const user = process.env.SMTP_USER;
+    const pass = process.env.SMTP_PASS;
+    const host = process.env.SMTP_HOST;
+    return this.isRealCredential(user) && this.isRealCredential(pass) && !!host;
+  }
+
+  /**
+   * Verifica se o ambiente possui chave do MailerSend
+   */
+  hasRealMailerSend() {
+    return (
+      process.env.MAILERSEND_API_KEY &&
+      process.env.MAILERSEND_API_KEY.startsWith('mlsn.')
+    );
+  }
+
+  /**
+   * Verifica se o ambiente possui chave da Resend API
+   */
+  hasRealResend() {
+    return (
+      process.env.RESEND_API_KEY &&
+      process.env.RESEND_API_KEY.startsWith('re_')
+    );
+  }
+
+  /**
    * Obtém ou inicializa o transportador SMTP do Nodemailer
    */
   async getTransporter() {
@@ -13,43 +59,110 @@ class EmailService {
       return this.transporter;
     }
 
-    const host = process.env.SMTP_HOST;
+    const host = (process.env.SMTP_HOST || '').trim();
     const port = parseInt(process.env.SMTP_PORT || '587', 10);
-    const user = process.env.SMTP_USER;
-    const pass = process.env.SMTP_PASS;
+    const user = (process.env.SMTP_USER || '').trim();
+    const rawPass = (process.env.SMTP_PASS || '').trim();
+    // Senhas de aplicativo do Gmail vêm formatadas em blocos de 4 (ex: "abcd efgh ijkl mnop"). Removemos espaços.
+    const pass = rawPass.replace(/\s+/g, '');
     const secure = process.env.SMTP_SECURE === 'true' || port === 465;
 
-    // Se as credenciais SMTP foram preenchidas no .env, usa o servidor configurado
-    if (host && user && pass) {
-      this.transporter = nodemailer.createTransport({
-        host,
-        port,
-        secure,
-        auth: {
-          user,
-          pass,
-        },
-        connectionTimeout: 25000,
-        greetingTimeout: 20000,
-        socketTimeout: 30000,
-      });
+    // Se as credenciais SMTP foram preenchidas com dados reais no .env
+    if (this.hasRealSmtpConfig()) {
+      const isGmail = host.toLowerCase().includes('gmail') || user.toLowerCase().endsWith('@gmail.com');
+
+      if (isGmail) {
+        this.transporter = nodemailer.createTransport({
+          service: 'gmail',
+          auth: {
+            user,
+            pass,
+          },
+          connectionTimeout: 15000,
+          greetingTimeout: 10000,
+          socketTimeout: 20000,
+        });
+      } else {
+        this.transporter = nodemailer.createTransport({
+          host,
+          port,
+          secure,
+          auth: {
+            user,
+            pass,
+          },
+          connectionTimeout: 15000,
+          greetingTimeout: 10000,
+          socketTimeout: 20000,
+          tls: {
+            rejectUnauthorized: false, // Permite certificados em desenvolvimento
+          },
+        });
+      }
       return this.transporter;
     }
 
-    // Modo desenvolvimento sem SMTP real configurado: envio simulado instantâneo sem delay de rede
-    this.transporter = nodemailer.createTransport({
-      jsonTransport: true,
-    });
-    return this.transporter;
+    // Modo desenvolvimento sem credenciais reais no .env:
+    // Cria automaticamente uma conta temporária Ethereal (com link para visualizar o e-mail real no navegador)
+    try {
+      const testAccount = await nodemailer.createTestAccount();
+      console.log('📬 [EmailService] Usando servidor de teste Ethereal (permite ver e-mails reais via link web).');
+      this.transporter = nodemailer.createTransport({
+        host: testAccount.smtp.host,
+        port: testAccount.smtp.port,
+        secure: testAccount.smtp.secure,
+        auth: {
+          user: testAccount.user,
+          pass: testAccount.pass,
+        },
+      });
+      return this.transporter;
+    } catch (err) {
+      // Se não houver internet para o Ethereal, usa simulador em memória sem travar
+      this.transporter = nodemailer.createTransport({
+        jsonTransport: true,
+      });
+      return this.transporter;
+    }
   }
 
   /**
-   * Dispara e-mail de recuperação de senha com link e token
+   * Testa a conectividade com o provedor de e-mail atual
+   */
+  async verifyConnection() {
+    if (this.hasRealResend()) {
+      return { ok: true, provider: 'Resend API' };
+    }
+    if (this.hasRealMailerSend()) {
+      return { ok: true, provider: 'MailerSend API' };
+    }
+    if (this.hasRealSmtpConfig()) {
+      try {
+        const transporter = await this.getTransporter();
+        await transporter.verify();
+        return { ok: true, provider: `SMTP (${process.env.SMTP_HOST || 'Gmail'})` };
+      } catch (error) {
+        return { ok: false, provider: 'SMTP', error: error.message };
+      }
+    }
+    return { ok: true, provider: 'Ethereal / Simulação Local' };
+  }
+
+  /**
+   * Dispara e-mail de recuperação de senha com link direto e código OTP
    */
   async sendPasswordResetEmail({ email, nome, token }) {
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
     const resetUrl = `${frontendUrl}/recuperar-senha?token=${token}&codigo=${token}&email=${encodeURIComponent(email)}`;
-    const fromAddress = process.env.SMTP_FROM || '"KeepStock" <nao-responda@keepstock.com.br>';
+    
+    // Tratamento de remetente (no Gmail, o sender precisa coincidir com o usuário autenticado)
+    let fromAddress = process.env.SMTP_FROM || '"KeepStock" <nao-responda@keepstock.com.br>';
+    if (this.hasRealSmtpConfig()) {
+      const user = (process.env.SMTP_USER || '').trim();
+      if (user.toLowerCase().endsWith('@gmail.com') && fromAddress.includes('keepstock.com.br')) {
+        fromAddress = `"KeepStock" <${user}>`;
+      }
+    }
 
     const subject = 'Recuperação de Senha — KeepStock';
 
@@ -112,11 +225,42 @@ class EmailService {
       </div>
     `;
 
-    const textContent = `Olá, ${nome || 'Usuário'}!\n\nPara redefinir sua senha no KeepStock, acesse o link:\n${resetUrl}\n\nOu utilize o token: ${token}\n\nEste token expira em 1 hora.\nSe você não solicitou, ignore esta mensagem.`;
+    const textContent = `Olá, ${nome || 'Usuário'}!\n\nPara redefinir sua senha no KeepStock, acesse o link:\n${resetUrl}\n\nOu utilize o token OTP: ${token}\n\nEste código expira em 1 hora.\nSe você não solicitou, ignore esta mensagem.`;
 
-    // 1. Envio via MailerSend REST API (apenas se for chave de API 'mlsn.')
-    const isApiKey = process.env.MAILERSEND_API_KEY && process.env.MAILERSEND_API_KEY.startsWith('mlsn.');
-    if (isApiKey) {
+    // 1. Envio via Resend API (se configurado)
+    if (this.hasRealResend()) {
+      try {
+        const resendApiKey = process.env.RESEND_API_KEY.trim();
+        const resendFrom = process.env.RESEND_FROM || 'KeepStock <onboarding@resend.dev>';
+        const response = await fetch('https://api.resend.com/emails', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${resendApiKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            from: resendFrom,
+            to: [email],
+            subject,
+            html,
+            text: textContent,
+          }),
+        });
+        const data = await response.json();
+        if (response.ok) {
+          console.log(`✉️  [Resend API] E-mail enviado com sucesso para: ${email} (ID: ${data.id})`);
+          this.logDevSummary({ email, nome, token, resetUrl });
+          return { success: true, messageId: data.id };
+        } else {
+          console.warn(`⚠️ [Resend API] Erro na resposta (${response.status}):`, data);
+        }
+      } catch (err) {
+        console.warn(`⚠️ [Resend API] Erro ao disparar:`, err.message);
+      }
+    }
+
+    // 2. Envio via MailerSend REST API (se configurado)
+    if (this.hasRealMailerSend()) {
       try {
         const fromEmail = process.env.MAILERSEND_FROM_EMAIL || 'info@trial.mailersend.net';
         const fromName = process.env.MAILERSEND_FROM_NAME || 'KeepStock';
@@ -139,18 +283,19 @@ class EmailService {
 
         if (msResponse.status === 202 || msResponse.ok) {
           const messageId = msResponse.headers.get('x-message-id');
-          console.log(`✉️  [MailerSend API] E-mail enviado com sucesso para: ${email} (Status: ${msResponse.status})`);
+          console.log(`✉️  [MailerSend API] E-mail enviado com sucesso para: ${email}`);
+          this.logDevSummary({ email, nome, token, resetUrl });
           return { success: true, messageId };
         } else {
           const errData = await msResponse.json().catch(() => ({}));
-          console.warn(`⚠️ [MailerSend API] Falha na API (${msResponse.status}), tentando via SMTP...`, errData.message || '');
+          console.warn(`⚠️ [MailerSend API] Falha na API:`, errData.message || '');
         }
       } catch (msErr) {
-        console.warn(`⚠️ [MailerSend API] Exceção de rede na API, tentando via SMTP...`, msErr.message);
+        console.warn(`⚠️ [MailerSend API] Exceção de rede:`, msErr.message);
       }
     }
 
-    // 2. Envio via SMTP (Nodemailer) ou simulador local
+    // 3. Envio via SMTP (Nodemailer) ou Servidor de Teste Ethereal
     try {
       const transporter = await this.getTransporter();
       const info = await transporter.sendMail({
@@ -165,15 +310,38 @@ class EmailService {
 
       // Se for conta de teste do Ethereal, exibe a URL de preview do e-mail no navegador
       const previewUrl = nodemailer.getTestMessageUrl(info);
-      if (previewUrl) {
-        console.log(`🔗 [PREVIEW DO E-MAIL]: ${previewUrl}`);
-      }
+      this.logDevSummary({ email, nome, token, resetUrl, previewUrl });
 
-      return { success: true, messageId: info.messageId, previewUrl };
+      return {
+        success: true,
+        messageId: info.messageId,
+        ...(previewUrl ? { previewUrl } : {}),
+      };
     } catch (error) {
-      console.error(`❌ Erro ao enviar e-mail de recuperação para ${email}:`, error.message);
+      console.error(`❌ Erro ao enviar e-mail para ${email}:`, error.message);
+      // Mesmo se o envio SMTP falhar, exibe o resumo no terminal para desenvolvimento
+      this.logDevSummary({ email, nome, token, resetUrl, error: error.message });
       return { success: false, error: error.message };
     }
+  }
+
+  /**
+   * Registra log amigável e legível no console
+   */
+  logDevSummary({ email, nome, token, resetUrl, previewUrl, error }) {
+    console.log('\n================================================================');
+    console.log('📧 [KEEPSTOCK] DISPARO DE E-MAIL DE RECUPERAÇÃO');
+    console.log(`👤 Destinatário: ${nome || 'Usuário'} <${email}>`);
+    console.log(`🔢 Código OTP (6 dígitos): \x1b[32m${token}\x1b[0m`);
+    console.log(`🔗 Link de Redefinição: ${resetUrl}`);
+    if (previewUrl) {
+      console.log(`🌐 Preview do E-mail (Abrir no Navegador): \x1b[36m${previewUrl}\x1b[0m`);
+    }
+    if (error) {
+      console.log(`⚠️ Falha no envio SMTP: \x1b[31m${error}\x1b[0m`);
+      console.log('💡 Dica: Verifique se configurou uma Senha de App no Gmail ou utilize o código acima diretamente.');
+    }
+    console.log('================================================================\n');
   }
 }
 
