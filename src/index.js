@@ -19,7 +19,7 @@ async function startServer() {
     console.warn('    Execute as migrations ("npm run migrate") assim que o MySQL estiver acessível.');
   }
 
-  const server = app.listen(PORT, () => {
+  const server = app.listen(PORT, '0.0.0.0', () => {
     console.log(`🌐 Servidor rodando na porta ${PORT}`);
     console.log(`📑 Documentação Swagger UI disponível em: http://localhost:${PORT}/api/docs`);
     console.log(`🩺 Healthcheck disponível em: http://localhost:${PORT}/health`);
