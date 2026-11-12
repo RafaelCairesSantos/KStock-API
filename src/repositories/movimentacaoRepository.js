@@ -1,4 +1,4 @@
-﻿const { query } = require('../db/connect');
+const { query } = require('../db/connect');
 
 class MovimentacaoRepository {
   async findById(id) {
@@ -120,6 +120,34 @@ class MovimentacaoRepository {
       [usuario_id, produto_id, tipo.toUpperCase(), quantidade, observacao]
     );
     return result.insertId;
+  }
+
+  async getVendasMensais({ produto_id = null, ano = null }) {
+    let sql = `
+      SELECT 
+        MONTH(m.data_hora) as mes,
+        YEAR(m.data_hora) as ano,
+        SUM(m.quantidade) as total_saidas,
+        COUNT(*) as total_transacoes
+      FROM movimentacao m
+      WHERE m.tipo = 'SAIDA'
+    `;
+    const params = [];
+
+    if (produto_id) {
+      sql += ' AND m.produto_id = ?';
+      params.push(produto_id);
+    }
+
+    if (ano) {
+      sql += ' AND YEAR(m.data_hora) = ?';
+      params.push(ano);
+    }
+
+    sql += ' GROUP BY YEAR(m.data_hora), MONTH(m.data_hora) ORDER BY ano ASC, mes ASC';
+
+    const [rows] = await query(sql, params);
+    return rows;
   }
 }
 

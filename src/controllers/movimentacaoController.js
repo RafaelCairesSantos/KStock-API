@@ -1,4 +1,4 @@
-﻿const movimentacaoService = require('../services/movimentacaoService');
+const movimentacaoService = require('../services/movimentacaoService');
 
 class MovimentacaoController {
   async list(req, res, next) {
@@ -14,6 +14,15 @@ class MovimentacaoController {
     try {
       const movimentacao = await movimentacaoService.getMovimentacaoById(req.params.id);
       return res.status(200).json(movimentacao);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async vendasMensais(req, res, next) {
+    try {
+      const result = await movimentacaoService.getVendasMensais(req.query);
+      return res.status(200).json(result);
     } catch (error) {
       next(error);
     }

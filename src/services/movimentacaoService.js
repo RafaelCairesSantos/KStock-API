@@ -113,6 +113,59 @@ class MovimentacaoService {
 
     return await this.getMovimentacaoById(movimentacaoId);
   }
+
+  async getVendasMensais(query = {}) {
+    const anoAtual = query.ano ? parseInt(query.ano, 10) : new Date().getFullYear();
+    const produtoId = query.produto_id ? parseInt(query.produto_id, 10) : null;
+
+    const rows = await movimentacaoRepository.getVendasMensais({
+      produto_id: produtoId,
+      ano: anoAtual
+    });
+
+    const mesesNomes = [
+      'Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun',
+      'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'
+    ];
+
+    const mapaMeses = {};
+    for (let i = 1; i <= 12; i++) {
+      mapaMeses[i] = {
+        mesNumero: i,
+        mesNome: mesesNomes[i - 1],
+        totalSaidas: 0,
+        totalTransacoes: 0
+      };
+    }
+
+    rows.forEach((r) => {
+      if (mapaMeses[r.mes]) {
+        mapaMeses[r.mes].totalSaidas = Number(r.total_saidas) || 0;
+        mapaMeses[r.mes].totalTransacoes = Number(r.total_transacoes) || 0;
+      }
+    });
+
+    const listaMeses = Object.values(mapaMeses);
+    const comSaidas = listaMeses.filter(m => m.totalSaidas > 0);
+
+    let mesMaisVendido = null;
+    let mesMenosVendido = null;
+
+    if (comSaidas.length > 0) {
+      mesMaisVendido = comSaidas.reduce((max, cur) => cur.totalSaidas > max.totalSaidas ? cur : max, comSaidas[0]);
+      mesMenosVendido = comSaidas.reduce((min, cur) => cur.totalSaidas < min.totalSaidas ? cur : min, comSaidas[0]);
+    }
+
+    return {
+      ano: anoAtual,
+      produto_id: produtoId,
+      dadosMensais: listaMeses,
+      mesMaisVendido,
+      mesMenosVendido,
+      totalAnualSaidas: listaMeses.reduce((acc, m) => acc + m.totalSaidas, 0),
+      mediaMensal: Number((listaMeses.reduce((acc, m) => acc + m.totalSaidas, 0) / 12).toFixed(1))
+    };
+  }
 }
 
 module.exports = new MovimentacaoService();

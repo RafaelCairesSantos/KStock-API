@@ -48,7 +48,7 @@ class EmailService {
    */
   async sendPasswordResetEmail({ email, nome, token }) {
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
-    const resetUrl = `${frontendUrl}/recuperar-senha?token=${token}&email=${encodeURIComponent(email)}`;
+    const resetUrl = `${frontendUrl}/recuperar-senha?token=${token}&codigo=${token}&email=${encodeURIComponent(email)}`;
     const fromAddress = process.env.SMTP_FROM || '"KeepStock" <nao-responda@keepstock.com.br>';
 
     const subject = 'Recuperação de Senha — KeepStock';
@@ -73,28 +73,31 @@ class EmailService {
                 Olá, ${nome || 'Usuário'}!
               </h2>
               <p style="margin: 0 0 20px; font-size: 14px; line-height: 1.6; color: #cbd5e1;">
-                Recebemos uma solicitação para redefinir a senha da sua conta no <strong>KeepStock</strong>. Para cadastrar sua nova senha com segurança, utilize o botão abaixo:
+                Recebemos uma solicitação para redefinir a senha da sua conta no <strong>KeepStock</strong>. Digite o código de verificação abaixo na tela de redefinição:
               </p>
 
-              <!-- Botão Principal -->
-              <div style="text-align: center; margin: 28px 0;">
+              <!-- Bloco do Código OTP em Destaque -->
+              <div style="background-color: #0f172a; border: 1px solid #334155; border-radius: 12px; padding: 22px 16px; margin: 24px 0; text-align: center;">
+                <p style="margin: 0 0 10px; font-size: 12px; color: #94a3b8; font-weight: 600; text-transform: uppercase; letter-spacing: 1px;">
+                  Código de Verificação de 6 Dígitos
+                </p>
+                <div style="font-family: 'Courier New', Courier, monospace; font-size: 34px; font-weight: 800; letter-spacing: 10px; background-color: #1e293b; color: #38bdf8; padding: 12px 24px; border-radius: 8px; border: 2px dashed #6366f1; display: inline-block;">
+                  ${token}
+                </div>
+                <p style="margin: 10px 0 0; font-size: 12px; color: #64748b;">
+                  Insira este código na tela de redefinição de senha do KeepStock.
+                </p>
+              </div>
+
+              <!-- Botão Principal com Link Direto -->
+              <div style="text-align: center; margin: 28px 0 20px;">
                 <a href="${resetUrl}" style="background-color: #4f46e5; color: #ffffff; text-decoration: none; padding: 13px 28px; border-radius: 8px; font-size: 14px; font-weight: 600; display: inline-block; box-shadow: 0 4px 12px rgba(79, 70, 229, 0.4);">
-                  Redefinir Minha Senha
+                  Redefinir Minha Senha com 1 Clique
                 </a>
               </div>
 
-              <!-- Token manual -->
-              <div style="background-color: #0f172a; border: 1px solid #334155; border-radius: 8px; padding: 16px; margin: 24px 0;">
-                <p style="margin: 0 0 8px; font-size: 12px; color: #94a3b8; font-weight: 500;">
-                  Ou informe este token manualmente na tela de recuperação:
-                </p>
-                <div style="font-family: monospace; font-size: 13px; background-color: #1e293b; color: #a5b4fc; padding: 10px 12px; border-radius: 6px; word-break: break-all; border: 1px dashed #4f46e5;">
-                  ${token}
-                </div>
-              </div>
-
               <p style="margin: 0 0 12px; font-size: 13px; line-height: 1.5; color: #94a3b8;">
-                ⚠️ <strong>Atenção:</strong> Este link e token são válidos por <strong>1 hora</strong>. Se você não solicitou a redefinição de senha, ignore este e-mail. Sua senha permanecerá inalterada.
+                ⚠️ <strong>Atenção:</strong> Este código é válido por <strong>1 hora</strong>. Se você não solicitou a redefinição de senha, ignore este e-mail com segurança. Sua senha permanecerá inalterada.
               </p>
             </td>
           </tr>

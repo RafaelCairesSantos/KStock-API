@@ -1,4 +1,4 @@
-﻿const express = require('express');
+const express = require('express');
 const router = express.Router();
 const produtoController = require('../controllers/produtoController');
 const verifyJWT = require('../middlewares/verifyJWT');
@@ -15,12 +15,12 @@ router.get('/:id', produtoController.getById);
 router.get('/:id/previsao-ruptura', produtoController.previsaoRuptura);
 router.post(
   '/',
-  verifyRole('ADMIN', 'GERENTE'),
+  verifyRole('ADMIN', 'GERENTE', 'OPERADOR'),
   validateBody(['categoria_id', 'fornecedor_id', 'nome', 'codigo']),
   produtoController.create
 );
-router.put('/:id', verifyRole('ADMIN', 'GERENTE'), produtoController.update);
-router.post('/:id/foto', verifyRole('ADMIN', 'GERENTE'), upload.single('foto'), produtoController.uploadFoto);
+router.put('/:id', verifyRole('ADMIN', 'GERENTE', 'OPERADOR'), produtoController.update);
+router.post('/:id/foto', verifyRole('ADMIN', 'GERENTE', 'OPERADOR'), upload.single('foto'), produtoController.uploadFoto);
 router.delete('/:id', verifyRole('ADMIN'), produtoController.delete);
 
 module.exports = router;

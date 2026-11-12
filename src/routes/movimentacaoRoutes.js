@@ -1,4 +1,4 @@
-﻿const express = require('express');
+const express = require('express');
 const router = express.Router();
 const movimentacaoController = require('../controllers/movimentacaoController');
 const verifyJWT = require('../middlewares/verifyJWT');
@@ -7,6 +7,7 @@ const { validateBody } = require('../middlewares/validate');
 router.use(verifyJWT);
 
 router.get('/', movimentacaoController.list);
+router.get('/vendas-mensais', movimentacaoController.vendasMensais);
 router.get('/:id', movimentacaoController.getById);
 router.post(
   '/',
