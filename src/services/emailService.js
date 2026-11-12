@@ -42,13 +42,39 @@ class EmailService {
   }
 
   /**
-   * Verifica se o ambiente possui chave da Resend API
+   * Verifica se o ambiente possui chave da Resend API (HTTP REST - nunca bloqueia por porta)
    */
   hasRealResend() {
     return (
       process.env.RESEND_API_KEY &&
       process.env.RESEND_API_KEY.startsWith('re_')
     );
+  }
+
+  /**
+   * Cria um transportador SMTP para um host e porta específicos
+   */
+  createSmtpTransport(port, secure) {
+    const host = (process.env.SMTP_HOST || 'smtp.gmail.com').trim();
+    const user = (process.env.SMTP_USER || '').trim();
+    const rawPass = (process.env.SMTP_PASS || '').trim();
+    const pass = rawPass.replace(/\s+/g, '');
+
+    return nodemailer.createTransport({
+      host,
+      port,
+      secure,
+      auth: {
+        user,
+        pass,
+      },
+      connectionTimeout: 10000,
+      greetingTimeout: 8000,
+      socketTimeout: 15000,
+      tls: {
+        rejectUnauthorized: false, // Evita falhas por antivírus / interceptadores de SSL locais
+      },
+    });
   }
 
   /**
@@ -59,46 +85,12 @@ class EmailService {
       return this.transporter;
     }
 
-    const host = (process.env.SMTP_HOST || '').trim();
-    const port = parseInt(process.env.SMTP_PORT || '587', 10);
-    const user = (process.env.SMTP_USER || '').trim();
-    const rawPass = (process.env.SMTP_PASS || '').trim();
-    // Senhas de aplicativo do Gmail vêm formatadas em blocos de 4 (ex: "abcd efgh ijkl mnop"). Removemos espaços.
-    const pass = rawPass.replace(/\s+/g, '');
-    const secure = process.env.SMTP_SECURE === 'true' || port === 465;
+    const preferredPort = parseInt(process.env.SMTP_PORT || '587', 10);
+    const preferredSecure = process.env.SMTP_SECURE === 'true' || preferredPort === 465;
 
     // Se as credenciais SMTP foram preenchidas com dados reais no .env
     if (this.hasRealSmtpConfig()) {
-      const isGmail = host.toLowerCase().includes('gmail') || user.toLowerCase().endsWith('@gmail.com');
-
-      if (isGmail) {
-        this.transporter = nodemailer.createTransport({
-          service: 'gmail',
-          auth: {
-            user,
-            pass,
-          },
-          connectionTimeout: 15000,
-          greetingTimeout: 10000,
-          socketTimeout: 20000,
-        });
-      } else {
-        this.transporter = nodemailer.createTransport({
-          host,
-          port,
-          secure,
-          auth: {
-            user,
-            pass,
-          },
-          connectionTimeout: 15000,
-          greetingTimeout: 10000,
-          socketTimeout: 20000,
-          tls: {
-            rejectUnauthorized: false, // Permite certificados em desenvolvimento
-          },
-        });
-      }
+      this.transporter = this.createSmtpTransport(preferredPort, preferredSecure);
       return this.transporter;
     }
 
@@ -127,22 +119,42 @@ class EmailService {
   }
 
   /**
-   * Testa a conectividade com o provedor de e-mail atual
+   * Testa a conectividade com o provedor de e-mail atual (testando porta 587 e 465 se necessário)
    */
   async verifyConnection() {
     if (this.hasRealResend()) {
-      return { ok: true, provider: 'Resend API' };
+      return { ok: true, provider: 'Resend API (HTTP REST)' };
     }
     if (this.hasRealMailerSend()) {
       return { ok: true, provider: 'MailerSend API' };
     }
     if (this.hasRealSmtpConfig()) {
+      const port1 = parseInt(process.env.SMTP_PORT || '587', 10);
+      const secure1 = process.env.SMTP_SECURE === 'true' || port1 === 465;
+      const t1 = this.createSmtpTransport(port1, secure1);
+
       try {
-        const transporter = await this.getTransporter();
-        await transporter.verify();
-        return { ok: true, provider: `SMTP (${process.env.SMTP_HOST || 'Gmail'})` };
-      } catch (error) {
-        return { ok: false, provider: 'SMTP', error: error.message };
+        await t1.verify();
+        this.transporter = t1;
+        return { ok: true, provider: `SMTP (${process.env.SMTP_HOST || 'Gmail'} na porta ${port1})` };
+      } catch (err1) {
+        // Tenta a porta alternativa (se tentou 587, tenta 465; se tentou 465, tenta 587)
+        const altPort = port1 === 587 ? 465 : 587;
+        const altSecure = altPort === 465;
+        console.warn(`⚠️ Porta ${port1} falhou (${err1.message}). Tentando porta alternativa ${altPort}...`);
+        
+        try {
+          const t2 = this.createSmtpTransport(altPort, altSecure);
+          await t2.verify();
+          this.transporter = t2;
+          return { ok: true, provider: `SMTP (${process.env.SMTP_HOST || 'Gmail'} na porta ${altPort})` };
+        } catch (err2) {
+          return {
+            ok: false,
+            provider: 'SMTP',
+            error: `Porta ${port1}: ${err1.message} | Porta ${altPort}: ${err2.message}`,
+          };
+        }
       }
     }
     return { ok: true, provider: 'Ethereal / Simulação Local' };
@@ -227,7 +239,7 @@ class EmailService {
 
     const textContent = `Olá, ${nome || 'Usuário'}!\n\nPara redefinir sua senha no KeepStock, acesse o link:\n${resetUrl}\n\nOu utilize o token OTP: ${token}\n\nEste código expira em 1 hora.\nSe você não solicitou, ignore esta mensagem.`;
 
-    // 1. Envio via Resend API (se configurado)
+    // 1. Envio via Resend API (HTTP REST na porta 443 - imune a bloqueios de portas SMTP de operadoras/nuvem)
     if (this.hasRealResend()) {
       try {
         const resendApiKey = process.env.RESEND_API_KEY.trim();
@@ -295,34 +307,65 @@ class EmailService {
       }
     }
 
-    // 3. Envio via SMTP (Nodemailer) ou Servidor de Teste Ethereal
-    try {
-      const transporter = await this.getTransporter();
-      const info = await transporter.sendMail({
-        from: fromAddress,
-        to: email,
-        subject,
-        html,
-        text: textContent,
-      });
+    // 3. Envio via SMTP (com fallback automático de portas 587 e 465)
+    let lastError = null;
 
-      console.log(`✉️  E-mail de recuperação enviado com sucesso para: ${email}`);
+    if (this.hasRealSmtpConfig()) {
+      const port1 = parseInt(process.env.SMTP_PORT || '587', 10);
+      const secure1 = process.env.SMTP_SECURE === 'true' || port1 === 465;
+      const portsToTry = [
+        { port: port1, secure: secure1 },
+        { port: port1 === 587 ? 465 : 587, secure: port1 === 587 },
+      ];
 
-      // Se for conta de teste do Ethereal, exibe a URL de preview do e-mail no navegador
-      const previewUrl = nodemailer.getTestMessageUrl(info);
-      this.logDevSummary({ email, nome, token, resetUrl, previewUrl });
+      for (const { port, secure } of portsToTry) {
+        try {
+          const t = this.createSmtpTransport(port, secure);
+          const info = await t.sendMail({
+            from: fromAddress,
+            to: email,
+            subject,
+            html,
+            text: textContent,
+          });
 
-      return {
-        success: true,
-        messageId: info.messageId,
-        ...(previewUrl ? { previewUrl } : {}),
-      };
-    } catch (error) {
-      console.error(`❌ Erro ao enviar e-mail para ${email}:`, error.message);
-      // Mesmo se o envio SMTP falhar, exibe o resumo no terminal para desenvolvimento
-      this.logDevSummary({ email, nome, token, resetUrl, error: error.message });
-      return { success: false, error: error.message };
+          console.log(`✉️  E-mail enviado com sucesso para ${email} (via porta ${port})`);
+          this.logDevSummary({ email, nome, token, resetUrl });
+          this.transporter = t;
+          return { success: true, messageId: info.messageId };
+        } catch (err) {
+          lastError = err;
+          console.warn(`⚠️ Tentativa na porta ${port} falhou (${err.message}).`);
+        }
+      }
+    } else {
+      // Ethereal / simulador em desenvolvimento
+      try {
+        const transporter = await this.getTransporter();
+        const info = await transporter.sendMail({
+          from: fromAddress,
+          to: email,
+          subject,
+          html,
+          text: textContent,
+        });
+
+        const previewUrl = nodemailer.getTestMessageUrl(info);
+        this.logDevSummary({ email, nome, token, resetUrl, previewUrl });
+        return {
+          success: true,
+          messageId: info.messageId,
+          ...(previewUrl ? { previewUrl } : {}),
+        };
+      } catch (err) {
+        lastError = err;
+      }
     }
+
+    // Se todas as tentativas falharem:
+    console.error(`❌ Erro ao enviar e-mail para ${email}:`, lastError?.message || 'Falha de conexão');
+    this.logDevSummary({ email, nome, token, resetUrl, error: lastError?.message });
+    return { success: false, error: lastError?.message || 'Falha de conexão SMTP' };
   }
 
   /**
@@ -339,7 +382,7 @@ class EmailService {
     }
     if (error) {
       console.log(`⚠️ Falha no envio SMTP: \x1b[31m${error}\x1b[0m`);
-      console.log('💡 Dica: Verifique se configurou uma Senha de App no Gmail ou utilize o código acima diretamente.');
+      console.log('💡 Dica: Se sua rede/operadora bloqueia conexões SMTP, use a Resend API (HTTP) ou utilize o código OTP acima.');
     }
     console.log('================================================================\n');
   }

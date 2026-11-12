@@ -15,12 +15,12 @@ async function testEmail() {
   console.log(` - Destinatário do teste: ${targetEmail}`);
   console.log('----------------------------------------------------');
 
-  console.log('🔍 Testando conexão com o servidor de e-mail...');
+  console.log('🔍 Testando conexão com o servidor de e-mail (com fallback de portas)...');
   const conn = await emailService.verifyConnection();
   if (conn.ok) {
     console.log(`✅ Conexão bem-sucedida! Provedor: ${conn.provider}`);
   } else {
-    console.warn(`⚠️ Aviso na conexão (${conn.provider}): ${conn.error}`);
+    console.warn(`⚠️ Aviso na conexão: ${conn.error}`);
   }
 
   console.log('\n🚀 Disparando e-mail de teste de recuperação de senha...');
@@ -31,14 +31,19 @@ async function testEmail() {
   });
 
   if (result.success) {
-    console.log('🎉 SUCESSO: E-mail processado com êxito!');
+    console.log('🎉 SUCESSO: E-mail entregue com êxito!');
     if (result.previewUrl) {
       console.log(`🔗 Acesse este link para ver o e-mail no navegador: ${result.previewUrl}`);
     } else {
       console.log(`📬 Verifique a caixa de entrada (e pasta de spam) de: ${targetEmail}`);
     }
   } else {
-    console.error(`❌ FALHA: Não foi possível enviar. Erro: ${result.error}`);
+    console.error(`❌ FALHA: Não foi possível enviar.`);
+    console.error(`   Detalhes: ${result.error}`);
+    console.log('\n💡 Se a sua operadora de internet (ou firewall/antivírus) estiver bloqueando portas SMTP (25, 465, 587):');
+    console.log('   Você pode usar a RESEND API gratuitamente via HTTP porta 443 (nunca bloqueia).');
+    console.log('   Basta criar uma chave grátis em https://resend.com e adicionar no .env:');
+    console.log('   RESEND_API_KEY=re_sua_chave_aqui');
   }
   console.log('====================================================');
 }
