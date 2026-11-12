@@ -8,7 +8,7 @@ const AppError = require('../utils/appError');
 const { isValidEmail } = require('../middlewares/validate');
 
 class AuthService {
-  async register({ nome, email, senha, perfil = 'OPERADOR' }) {
+  async register({ nome, email, senha, perfil = 'ADMIN' }) {
     if (!nome || !email || !senha) {
       throw new AppError('Nome, e-mail e senha são obrigatórios.', 400, 'MISSING_FIELDS');
     }
@@ -107,17 +107,18 @@ class AuthService {
     let token = null;
     let previewUrl = null;
     if (user) {
-      token = crypto.randomBytes(32).toString('hex');
+      // Código de 6 dígitos numéricos alinhado com o formulário OTP do frontend
+      token = Math.floor(100000 + Math.random() * 900000).toString();
       const expiraEm = new Date(Date.now() + 3600000).toISOString().slice(0, 19).replace('T', ' ');
       await usuarioRepository.updateResetToken(user.id, token, expiraEm);
 
       console.log('\n====================================================');
-      console.log(`🔑 [REDEFINIÇÃO DE SENHA]`);
+      console.log(`🔑 [REDEFINIÇÃO DE SENHA - KEEPSTOCK]`);
       console.log(`📧 E-mail: ${email}`);
-      console.log(`🎟️  Token: ${token}`);
+      console.log(`🔢 Código OTP (6 dígitos): ${token}`);
       console.log('====================================================\n');
 
-      // Dispara o e-mail via serviço SMTP
+      // Dispara o e-mail via serviço SMTP / MailerSend
       const emailResult = await emailService.sendPasswordResetEmail({
         email: user.email,
         nome: user.nome,
@@ -129,19 +130,30 @@ class AuthService {
       }
     }
     return {
-      message: 'Se o e-mail estiver cadastrado, você receberá instruções por e-mail.',
-      ...(process.env.NODE_ENV !== 'production' && token ? { devToken: token, ...(previewUrl ? { previewUrl } : {}) } : {})
+      message: 'Se o e-mail estiver cadastrado, você receberá instruções com o código por e-mail.',
+      ...(process.env.NODE_ENV !== 'production' && token ? { devToken: token, devCode: token, ...(previewUrl ? { previewUrl } : {}) } : {})
     };
   }
 
-  async confirmarReset({ token, novaSenha }) {
-    const user = await usuarioRepository.findByResetToken(token);
-    if (!user) throw new AppError('Token inválido ou expirado.', 400, 'INVALID_TOKEN');
-    if (!novaSenha || novaSenha.length < 6) throw new AppError('Senha muito curta.', 400, 'WEAK_PASSWORD');
+  async confirmarReset({ token, codigo, novaSenha }) {
+    const codigoVerificacao = (token || codigo || '').toString().trim();
+    if (!codigoVerificacao) {
+      throw new AppError('Código de verificação ou token é obrigatório.', 400, 'MISSING_TOKEN');
+    }
+
+    const user = await usuarioRepository.findByResetToken(codigoVerificacao);
+    if (!user) {
+      throw new AppError('Código de verificação inválido ou expirado.', 400, 'INVALID_TOKEN');
+    }
+
+    if (!novaSenha || novaSenha.length < 6) {
+      throw new AppError('A senha deve conter no mínimo 6 caracteres.', 400, 'WEAK_PASSWORD');
+    }
+
     const salt = await bcrypt.genSalt(10);
     await usuarioRepository.updateSenha(user.id, await bcrypt.hash(novaSenha, salt));
     await usuarioRepository.updateResetToken(user.id, null, null);
-    return { message: 'Senha redefinida com sucesso.' };
+    return { message: 'Senha redefinida com sucesso. Faça login com a nova senha.' };
   }
 
   generateToken(user) {

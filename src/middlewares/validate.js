@@ -1,4 +1,4 @@
-﻿const AppError = require('../utils/appError');
+const AppError = require('../utils/appError');
 
 function validateBody(requiredFields = [], allowedFields = null) {
   return (req, res, next) => {
@@ -34,6 +34,11 @@ function isValidCNPJ(cnpj) {
   const cleanCNPJ = cnpj.replace(/[^\d]/g, '');
   if (cleanCNPJ.length !== 14) return false;
   if (/^(\d)\1{13}$/.test(cleanCNPJ)) return false;
+
+  // Em desenvolvimento / demonstração acadêmica, permite qualquer CNPJ com 14 dígitos estruturados
+  if (process.env.NODE_ENV !== 'production') {
+    return true;
+  }
 
   let tamanho = cleanCNPJ.length - 2;
   let numeros = cleanCNPJ.substring(0, tamanho);

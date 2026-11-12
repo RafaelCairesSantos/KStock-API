@@ -1,4 +1,4 @@
-﻿const express = require('express');
+const express = require('express');
 const router = express.Router();
 const fornecedorController = require('../controllers/fornecedorController');
 const verifyJWT = require('../middlewares/verifyJWT');
@@ -9,8 +9,8 @@ router.use(verifyJWT);
 
 router.get('/', fornecedorController.list);
 router.get('/:id', fornecedorController.getById);
-router.post('/', verifyRole('ADMIN', 'GERENTE'), validateBody(['nome', 'cnpj']), fornecedorController.create);
-router.put('/:id', verifyRole('ADMIN', 'GERENTE'), fornecedorController.update);
+router.post('/', verifyRole('ADMIN', 'GERENTE', 'OPERADOR'), validateBody(['nome', 'cnpj']), fornecedorController.create);
+router.put('/:id', verifyRole('ADMIN', 'GERENTE', 'OPERADOR'), fornecedorController.update);
 router.delete('/:id', verifyRole('ADMIN'), fornecedorController.delete);
 
 module.exports = router;

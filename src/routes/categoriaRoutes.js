@@ -1,4 +1,4 @@
-﻿const express = require('express');
+const express = require('express');
 const router = express.Router();
 const categoriaController = require('../controllers/categoriaController');
 const verifyJWT = require('../middlewares/verifyJWT');
@@ -9,8 +9,8 @@ router.use(verifyJWT);
 
 router.get('/', categoriaController.list);
 router.get('/:id', categoriaController.getById);
-router.post('/', verifyRole('ADMIN', 'GERENTE'), validateBody(['nome']), categoriaController.create);
-router.put('/:id', verifyRole('ADMIN', 'GERENTE'), categoriaController.update);
+router.post('/', verifyRole('ADMIN', 'GERENTE', 'OPERADOR'), validateBody(['nome']), categoriaController.create);
+router.put('/:id', verifyRole('ADMIN', 'GERENTE', 'OPERADOR'), categoriaController.update);
 router.delete('/:id', verifyRole('ADMIN'), categoriaController.delete);
 
 module.exports = router;
