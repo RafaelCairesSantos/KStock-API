@@ -8,6 +8,8 @@ async function testEmail() {
   console.log('   🧪 TESTE DE ENVIO DE E-MAIL - KEEPSTOCK          ');
   console.log('====================================================');
   console.log(`Configuração detectada:`);
+  console.log(` - BREVO_API_KEY: ${process.env.BREVO_API_KEY ? 'Configurada (' + process.env.BREVO_API_KEY.slice(0, 15) + '...)' : '(não definida)'}`);
+  console.log(` - RESEND_API_KEY: ${process.env.RESEND_API_KEY ? 'Configurada (' + process.env.RESEND_API_KEY.slice(0, 8) + '...)' : '(não definida)'}`);
   console.log(` - SMTP_HOST: ${process.env.SMTP_HOST || '(não definido)'}`);
   console.log(` - SMTP_PORT: ${process.env.SMTP_PORT || '587'}`);
   console.log(` - SMTP_USER: ${process.env.SMTP_USER || '(não definido)'}`);

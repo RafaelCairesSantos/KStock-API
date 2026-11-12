@@ -52,6 +52,16 @@ class EmailService {
   }
 
   /**
+   * Verifica se o ambiente possui chave da Brevo API (HTTP REST - porta 443, 300 e-mails grátis/dia)
+   */
+  hasRealBrevo() {
+    return (
+      process.env.BREVO_API_KEY &&
+      (process.env.BREVO_API_KEY.startsWith('xkeysib-') || process.env.BREVO_API_KEY.length > 20)
+    );
+  }
+
+  /**
    * Cria um transportador SMTP para um host e porta específicos
    */
   createSmtpTransport(port, secure) {
@@ -122,8 +132,11 @@ class EmailService {
    * Testa a conectividade com o provedor de e-mail atual (testando porta 587 e 465 se necessário)
    */
   async verifyConnection() {
+    if (this.hasRealBrevo()) {
+      return { ok: true, provider: 'Brevo API (HTTP REST na porta 443)' };
+    }
     if (this.hasRealResend()) {
-      return { ok: true, provider: 'Resend API (HTTP REST)' };
+      return { ok: true, provider: 'Resend API (HTTP REST na porta 443)' };
     }
     if (this.hasRealMailerSend()) {
       return { ok: true, provider: 'MailerSend API' };
@@ -239,7 +252,53 @@ class EmailService {
 
     const textContent = `Olá, ${nome || 'Usuário'}!\n\nPara redefinir sua senha no KeepStock, acesse o link:\n${resetUrl}\n\nOu utilize o token OTP: ${token}\n\nEste código expira em 1 hora.\nSe você não solicitou, ignore esta mensagem.`;
 
-    // 1. Envio via Resend API (HTTP REST na porta 443 - imune a bloqueios de portas SMTP de operadoras/nuvem)
+    // 1. Envio via Brevo API (HTTP REST na porta 443 - 300 e-mails grátis/dia para qualquer destinatário)
+    if (this.hasRealBrevo()) {
+      try {
+        const brevoApiKey = process.env.BREVO_API_KEY.trim();
+        const senderEmail = process.env.BREVO_SENDER_EMAIL || process.env.SMTP_USER || 'keepstockplus@gmail.com';
+        const senderName = process.env.BREVO_SENDER_NAME || 'KeepStock';
+
+        const response = await fetch('https://api.brevo.com/v3/smtp/email', {
+          method: 'POST',
+          headers: {
+            'api-key': brevoApiKey,
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+          },
+          body: JSON.stringify({
+            sender: { name: senderName, email: senderEmail },
+            to: [{ email, name: nome || 'Usuário' }],
+            subject,
+            htmlContent: html,
+            textContent: textContent,
+          }),
+        });
+
+        const data = await response.json();
+        if (response.ok) {
+          console.log(`✉️  [Brevo API] E-mail enviado com sucesso para: ${email} (MessageId: ${data.messageId})`);
+          this.logDevSummary({ email, nome, token, resetUrl });
+          return { success: true, messageId: data.messageId };
+        } else {
+          let errorMsg = data.message || `Erro HTTP ${response.status} na Brevo API`;
+          if (data.code === 'unauthorized' || response.status === 401) {
+            errorMsg = '[Brevo] Chave de API (BREVO_API_KEY) inválida ou não autorizada.';
+          } else if (data.message && data.message.toLowerCase().includes('sender')) {
+            errorMsg = `[Brevo] O e-mail de remetente "${senderEmail}" não está verificado na sua conta Brevo. Use em BREVO_SENDER_EMAIL no .env o mesmo e-mail com que se cadastrou na Brevo.`;
+          }
+          console.warn(`⚠️ [Brevo API] Falha no envio:`, errorMsg);
+          this.logDevSummary({ email, nome, token, resetUrl, error: errorMsg });
+          return { success: false, error: errorMsg };
+        }
+      } catch (err) {
+        console.warn(`⚠️ [Brevo API] Erro ao disparar:`, err.message);
+        this.logDevSummary({ email, nome, token, resetUrl, error: err.message });
+        return { success: false, error: err.message };
+      }
+    }
+
+    // 2. Envio via Resend API (HTTP REST na porta 443 - imune a bloqueios de portas SMTP de operadoras/nuvem)
     if (this.hasRealResend()) {
       try {
         const resendApiKey = process.env.RESEND_API_KEY.trim();
@@ -264,10 +323,18 @@ class EmailService {
           this.logDevSummary({ email, nome, token, resetUrl });
           return { success: true, messageId: data.id };
         } else {
-          console.warn(`⚠️ [Resend API] Erro na resposta (${response.status}):`, data);
+          let errorMsg = data.message || `Erro HTTP ${response.status} na Resend API`;
+          if (response.status === 403 && data.message && data.message.includes('only send testing emails')) {
+            errorMsg = `[Resend] No plano gratuito do Resend, você só pode enviar e-mails para o endereço de e-mail que você usou para se cadastrar no Resend. Cadastre um domínio próprio em resend.com/domains ou teste enviando para o seu próprio e-mail do cadastro.`;
+          }
+          console.warn(`⚠️ [Resend API] Falha no envio:`, errorMsg);
+          this.logDevSummary({ email, nome, token, resetUrl, error: errorMsg });
+          return { success: false, error: errorMsg };
         }
       } catch (err) {
         console.warn(`⚠️ [Resend API] Erro ao disparar:`, err.message);
+        this.logDevSummary({ email, nome, token, resetUrl, error: err.message });
+        return { success: false, error: err.message };
       }
     }
 
