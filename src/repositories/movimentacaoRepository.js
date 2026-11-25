@@ -122,7 +122,7 @@ class MovimentacaoRepository {
     return result.insertId;
   }
 
-  async getVendasMensais({ produto_id = null, ano = null }) {
+  async getVendasMensais({ produto_id = null, categoria_id = null, ano = null }) {
     let sql = `
       SELECT 
         MONTH(m.data_hora) as mes,
@@ -130,6 +130,7 @@ class MovimentacaoRepository {
         SUM(m.quantidade) as total_saidas,
         COUNT(*) as total_transacoes
       FROM movimentacao m
+      JOIN produto p ON m.produto_id = p.id
       WHERE m.tipo = 'SAIDA'
     `;
     const params = [];
@@ -137,6 +138,11 @@ class MovimentacaoRepository {
     if (produto_id) {
       sql += ' AND m.produto_id = ?';
       params.push(produto_id);
+    }
+
+    if (categoria_id) {
+      sql += ' AND p.categoria_id = ?';
+      params.push(categoria_id);
     }
 
     if (ano) {

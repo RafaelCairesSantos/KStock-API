@@ -115,11 +115,13 @@ class MovimentacaoService {
   }
 
   async getVendasMensais(query = {}) {
-    const anoAtual = query.ano ? parseInt(query.ano, 10) : new Date().getFullYear();
-    const produtoId = query.produto_id ? parseInt(query.produto_id, 10) : null;
+    const anoAtual = parseInt(query.ano, 10) || new Date().getFullYear();
+    const produtoId = query.produto_id ? parseInt(query.produto_id, 10) || null : null;
+    const categoriaId = query.categoria_id ? parseInt(query.categoria_id, 10) || null : null;
 
     const rows = await movimentacaoRepository.getVendasMensais({
       produto_id: produtoId,
+      categoria_id: categoriaId,
       ano: anoAtual
     });
 
@@ -156,14 +158,17 @@ class MovimentacaoService {
       mesMenosVendido = comSaidas.reduce((min, cur) => cur.totalSaidas < min.totalSaidas ? cur : min, comSaidas[0]);
     }
 
+    const totalAnualSaidas = listaMeses.reduce((acc, m) => acc + m.totalSaidas, 0);
+
     return {
       ano: anoAtual,
       produto_id: produtoId,
+      categoria_id: categoriaId,
       dadosMensais: listaMeses,
       mesMaisVendido,
       mesMenosVendido,
-      totalAnualSaidas: listaMeses.reduce((acc, m) => acc + m.totalSaidas, 0),
-      mediaMensal: Number((listaMeses.reduce((acc, m) => acc + m.totalSaidas, 0) / 12).toFixed(1))
+      totalAnualSaidas,
+      mediaMensal: Number((totalAnualSaidas / 12).toFixed(1))
     };
   }
 }
