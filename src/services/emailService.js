@@ -177,7 +177,8 @@ class EmailService {
    * Dispara e-mail de recuperação de senha com link direto e código OTP
    */
   async sendPasswordResetEmail({ email, nome, token }) {
-    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+    const rawFrontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+    const frontendUrl = rawFrontendUrl.split(',')[0].trim().replace(/\/+$/, '');
     const resetUrl = `${frontendUrl}/recuperar-senha?token=${token}&codigo=${token}&email=${encodeURIComponent(email)}`;
     
     // Tratamento de remetente (no Gmail, o sender precisa coincidir com o usuário autenticado)

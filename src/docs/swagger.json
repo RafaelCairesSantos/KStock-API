@@ -1,4 +1,4 @@
-﻿{
+{
   "openapi": "3.0.0",
   "info": {
     "title": "KStock-API",
@@ -67,7 +67,8 @@
         "responses": {
           "201": { "description": "Usuário cadastrado com sucesso." },
           "400": { "description": "Dados inválidos." },
-          "409": { "description": "E-mail já cadastrado." }
+          "409": { "description": "E-mail já cadastrado." },
+          "429": { "description": "Muitas requisições do mesmo IP." }
         }
       }
     },
@@ -94,7 +95,58 @@
           "200": {
             "description": "Login realizado com sucesso e token retornado."
           },
-          "401": { "description": "Credenciais inválidas." }
+          "401": { "description": "Credenciais inválidas." },
+          "429": { "description": "Muitas requisições do mesmo IP." }
+        }
+      }
+    },
+    "/api/v1/auth/esqueci-senha": {
+      "post": {
+        "tags": ["Autenticação"],
+        "summary": "Solicitar código OTP de 6 dígitos para recuperação de senha",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["email"],
+                "properties": {
+                  "email": { "type": "string", "example": "usuario@kstock.com" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Instruções enviadas por e-mail caso o endereço exista." },
+          "429": { "description": "Muitas requisições do mesmo IP." }
+        }
+      }
+    },
+    "/api/v1/auth/resetar-senha": {
+      "post": {
+        "tags": ["Autenticação"],
+        "summary": "Confirmar redefinição de senha usando código OTP de 6 dígitos",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["novaSenha"],
+                "properties": {
+                  "codigo": { "type": "string", "example": "482910" },
+                  "token": { "type": "string", "example": "482910" },
+                  "novaSenha": { "type": "string", "example": "NovaSenha@123" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Senha redefinida com sucesso." },
+          "400": { "description": "Código inválido, expirado ou senha fraca." }
         }
       }
     },
@@ -106,6 +158,444 @@
         "responses": {
           "200": { "description": "Dados do usuário logado e assinatura." },
           "401": { "description": "Não autorizado." }
+        }
+      }
+    },
+    "/api/v1/dashboard/resumo": {
+      "get": {
+        "tags": ["Dashboard"],
+        "summary": "Obter indicadores consolidados do estoque e movimentações",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Indicadores do painel principal.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "totalProdutos": { "type": "integer", "example": 42 },
+                    "totalEstoqueFisico": { "type": "integer", "example": 1250 },
+                    "itensEstoqueBaixo": { "type": "integer", "example": 4 },
+                    "movimentacoesTotal": { "type": "integer", "example": 318 }
+                  }
+                }
+              }
+            }
+          },
+          "401": { "description": "Não autorizado." }
+        }
+      }
+    },
+    "/api/v1/usuarios": {
+      "get": {
+        "tags": ["Usuários"],
+        "summary": "Listar usuários com paginação (Apenas ADMIN)",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "page", "in": "query", "schema": { "type": "integer", "default": 1 } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 20 } },
+          { "name": "search", "in": "query", "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Lista paginada de usuários." },
+          "403": { "description": "Acesso restrito a ADMIN." }
+        }
+      },
+      "post": {
+        "tags": ["Usuários"],
+        "summary": "Criar novo usuário (Apenas ADMIN)",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["nome", "email", "senha", "perfil"],
+                "properties": {
+                  "nome": { "type": "string", "example": "Maria Souza" },
+                  "email": { "type": "string", "example": "maria@kstock.com" },
+                  "senha": { "type": "string", "example": "Senha@123" },
+                  "perfil": { "type": "string", "enum": ["ADMIN", "GERENTE", "OPERADOR"], "example": "OPERADOR" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Usuário criado com sucesso." },
+          "403": { "description": "Acesso restrito a ADMIN." },
+          "409": { "description": "E-mail duplicado." }
+        }
+      }
+    },
+    "/api/v1/usuarios/{id}": {
+      "get": {
+        "tags": ["Usuários"],
+        "summary": "Buscar usuário por ID (ADMIN ou próprio usuário)",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }
+        ],
+        "responses": {
+          "200": { "description": "Dados do usuário." },
+          "403": { "description": "Sem permissão para acessar dados de outro usuário." },
+          "404": { "description": "Usuário não encontrado." }
+        }
+      },
+      "put": {
+        "tags": ["Usuários"],
+        "summary": "Atualizar nome/e-mail do usuário (ADMIN ou próprio usuário)",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "nome": { "type": "string", "example": "Maria Souza" },
+                  "email": { "type": "string", "example": "maria@kstock.com" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Usuário atualizado com sucesso." },
+          "403": { "description": "Sem permissão para editar dados de outro usuário." },
+          "404": { "description": "Usuário não encontrado." }
+        }
+      },
+      "delete": {
+        "tags": ["Usuários"],
+        "summary": "Excluir usuário (Apenas ADMIN; protege contra exclusão do último ADMIN)",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }
+        ],
+        "responses": {
+          "200": { "description": "Usuário excluído com sucesso." },
+          "400": { "description": "Não é possível excluir a si mesmo ou o único ADMIN." },
+          "403": { "description": "Acesso restrito a ADMIN." },
+          "404": { "description": "Usuário não encontrado." }
+        }
+      }
+    },
+    "/api/v1/usuarios/{id}/perfil": {
+      "patch": {
+        "tags": ["Usuários"],
+        "summary": "Atualizar perfil de acesso do usuário (Apenas ADMIN)",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["perfil"],
+                "properties": {
+                  "perfil": { "type": "string", "enum": ["ADMIN", "GERENTE", "OPERADOR"] }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Perfil atualizado com sucesso." },
+          "403": { "description": "Acesso restrito a ADMIN." },
+          "404": { "description": "Usuário não encontrado." }
+        }
+      }
+    },
+    "/api/v1/categorias": {
+      "get": {
+        "tags": ["Categorias"],
+        "summary": "Listar categorias com paginação e busca",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "page", "in": "query", "schema": { "type": "integer", "default": 1 } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 20 } },
+          { "name": "search", "in": "query", "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Lista paginada de categorias." }
+        }
+      },
+      "post": {
+        "tags": ["Categorias"],
+        "summary": "Cadastrar nova categoria",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["nome"],
+                "properties": {
+                  "nome": { "type": "string", "example": "Eletrônicos" },
+                  "descricao": { "type": "string", "example": "Periféricos e dispositivos eletrônicos" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Categoria criada com sucesso." },
+          "409": { "description": "Categoria já cadastrada." }
+        }
+      }
+    },
+    "/api/v1/categorias/{id}": {
+      "get": {
+        "tags": ["Categorias"],
+        "summary": "Buscar categoria por ID",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }
+        ],
+        "responses": {
+          "200": { "description": "Dados da categoria." },
+          "404": { "description": "Categoria não encontrada." }
+        }
+      },
+      "put": {
+        "tags": ["Categorias"],
+        "summary": "Atualizar categoria",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "nome": { "type": "string" },
+                  "descricao": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Categoria atualizada com sucesso." },
+          "404": { "description": "Categoria não encontrada." }
+        }
+      },
+      "delete": {
+        "tags": ["Categorias"],
+        "summary": "Excluir categoria (Apenas ADMIN)",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }
+        ],
+        "responses": {
+          "200": { "description": "Categoria excluída com sucesso." },
+          "403": { "description": "Acesso restrito a ADMIN." },
+          "409": { "description": "Categoria possui produtos vinculados." }
+        }
+      }
+    },
+    "/api/v1/fornecedores": {
+      "get": {
+        "tags": ["Fornecedores"],
+        "summary": "Listar fornecedores com paginação e busca",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "page", "in": "query", "schema": { "type": "integer", "default": 1 } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 20 } },
+          { "name": "search", "in": "query", "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Lista paginada de fornecedores." }
+        }
+      },
+      "post": {
+        "tags": ["Fornecedores"],
+        "summary": "Cadastrar novo fornecedor",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["nome", "cnpj"],
+                "properties": {
+                  "nome": { "type": "string", "example": "Tech Distribuidora Ltda" },
+                  "cnpj": { "type": "string", "example": "12.345.678/0001-90" },
+                  "contato": { "type": "string", "example": "(11) 99999-8888" },
+                  "endereco": { "type": "string", "example": "Av. Paulista, 1000 - SP" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Fornecedor cadastrado com sucesso." },
+          "409": { "description": "CNPJ já cadastrado." }
+        }
+      }
+    },
+    "/api/v1/fornecedores/{id}": {
+      "get": {
+        "tags": ["Fornecedores"],
+        "summary": "Buscar fornecedor por ID",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }
+        ],
+        "responses": {
+          "200": { "description": "Dados do fornecedor." },
+          "404": { "description": "Fornecedor não encontrado." }
+        }
+      },
+      "put": {
+        "tags": ["Fornecedores"],
+        "summary": "Atualizar fornecedor",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "nome": { "type": "string" },
+                  "cnpj": { "type": "string" },
+                  "contato": { "type": "string" },
+                  "endereco": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Fornecedor atualizado com sucesso." },
+          "404": { "description": "Fornecedor não encontrado." }
+        }
+      },
+      "delete": {
+        "tags": ["Fornecedores"],
+        "summary": "Excluir fornecedor (Apenas ADMIN)",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }
+        ],
+        "responses": {
+          "200": { "description": "Fornecedor excluído com sucesso." },
+          "403": { "description": "Acesso restrito a ADMIN." },
+          "409": { "description": "Fornecedor possui produtos vinculados." }
+        }
+      }
+    },
+    "/api/v1/assinaturas/minha": {
+      "get": {
+        "tags": ["Assinaturas"],
+        "summary": "Consultar assinatura do usuário autenticado",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": { "description": "Dados da assinatura do usuário logado." }
+        }
+      }
+    },
+    "/api/v1/assinaturas": {
+      "get": {
+        "tags": ["Assinaturas"],
+        "summary": "Listar assinaturas (Apenas ADMIN)",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "page", "in": "query", "schema": { "type": "integer", "default": 1 } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 20 } }
+        ],
+        "responses": {
+          "200": { "description": "Lista paginada de assinaturas." },
+          "403": { "description": "Acesso restrito a ADMIN." }
+        }
+      },
+      "post": {
+        "tags": ["Assinaturas"],
+        "summary": "Criar assinatura para um usuário (Apenas ADMIN)",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["usuario_id", "plano", "data_inicio"],
+                "properties": {
+                  "usuario_id": { "type": "integer", "example": 1 },
+                  "plano": { "type": "string", "enum": ["FREE", "BASIC", "PRO", "ENTERPRISE"], "example": "PRO" },
+                  "data_inicio": { "type": "string", "format": "date", "example": "2026-01-01" },
+                  "data_fim": { "type": "string", "format": "date" },
+                  "status": { "type": "string", "enum": ["ATIVO", "INATIVO", "CANCELADO", "PENDENTE"], "example": "ATIVO" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Assinatura criada com sucesso." },
+          "403": { "description": "Acesso restrito a ADMIN." }
+        }
+      }
+    },
+    "/api/v1/assinaturas/{id}": {
+      "get": {
+        "tags": ["Assinaturas"],
+        "summary": "Buscar assinatura por ID (Apenas ADMIN)",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }
+        ],
+        "responses": {
+          "200": { "description": "Dados da assinatura." },
+          "403": { "description": "Acesso restrito a ADMIN." },
+          "404": { "description": "Assinatura não encontrada." }
+        }
+      }
+    },
+    "/api/v1/assinaturas/{id}/status": {
+      "patch": {
+        "tags": ["Assinaturas"],
+        "summary": "Alterar status da assinatura (Apenas ADMIN)",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["status"],
+                "properties": {
+                  "status": { "type": "string", "enum": ["ATIVO", "INATIVO", "CANCELADO", "PENDENTE"] }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Status atualizado com sucesso." },
+          "403": { "description": "Acesso restrito a ADMIN." },
+          "404": { "description": "Assinatura não encontrada." }
         }
       }
     },
@@ -193,6 +683,61 @@
         }
       }
     },
+    "/api/v1/produtos/risco-ruptura": {
+      "get": {
+        "tags": ["Produtos"],
+        "summary": "Lista produtos com risco ALTO de ruptura",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "dias",
+            "in": "query",
+            "schema": { "type": "integer", "default": 30 }
+          },
+          {
+            "name": "limite_dias",
+            "in": "query",
+            "schema": { "type": "integer", "default": 7 }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Produtos em risco, ordenados do mais urgente"
+          }
+        }
+      }
+    },
+    "/api/v1/produtos/{id}/previsao-ruptura": {
+      "get": {
+        "tags": ["Produtos"],
+        "summary": "Previsão de ruptura de estoque de um produto",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "integer" }
+          },
+          {
+            "name": "dias",
+            "in": "query",
+            "description": "Período analisado (1-365, padrão 30)",
+            "schema": { "type": "integer", "default": 30 }
+          },
+          {
+            "name": "limite_dias",
+            "in": "query",
+            "description": "Dias até a ruptura para risco ALTO (padrão 7)",
+            "schema": { "type": "integer", "default": 7 }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Previsão calculada" },
+          "404": { "description": "Produto não encontrado" }
+        }
+      }
+    },
     "/api/v1/movimentacoes": {
       "get": {
         "tags": ["Movimentações"],
@@ -255,6 +800,39 @@
         }
       }
     },
+    "/api/v1/movimentacoes/vendas-mensais": {
+      "get": {
+        "tags": ["Movimentações"],
+        "summary": "Consultar sazonalidade de vendas/saídas agrupadas por mês (Jan a Dez)",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "ano",
+            "in": "query",
+            "description": "Ano de referência (padrão: ano atual)",
+            "schema": { "type": "integer", "example": 2026 }
+          },
+          {
+            "name": "categoria_id",
+            "in": "query",
+            "description": "Filtrar por categoria do produto",
+            "schema": { "type": "integer" }
+          },
+          {
+            "name": "produto_id",
+            "in": "query",
+            "description": "Filtrar por produto específico",
+            "schema": { "type": "integer" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Consolidado mensal de saídas com mês mais vendido, menos vendido, total anual e média mensal."
+          },
+          "401": { "description": "Não autorizado." }
+        }
+      }
+    },
     "/api/v1/historico": {
       "get": {
         "tags": ["Auditoria"],
@@ -262,62 +840,6 @@
         "security": [{ "bearerAuth": [] }],
         "responses": {
           "200": { "description": "Registros de auditoria." }
-        }
-      }
-    },
-
-    "/api/v1/produtos/{id}/previsao-ruptura": {
-      "get": {
-        "tags": ["Produtos"],
-        "summary": "Previsão de ruptura de estoque de um produto",
-        "security": [{ "bearerAuth": [] }],
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": { "type": "integer" }
-          },
-          {
-            "name": "dias",
-            "in": "query",
-            "description": "Período analisado (1-365, padrão 30)",
-            "schema": { "type": "integer", "default": 30 }
-          },
-          {
-            "name": "limite_dias",
-            "in": "query",
-            "description": "Dias até a ruptura para risco ALTO (padrão 7)",
-            "schema": { "type": "integer", "default": 7 }
-          }
-        ],
-        "responses": {
-          "200": { "description": "Previsão calculada" },
-          "404": { "description": "Produto não encontrado" }
-        }
-      }
-    },
-    "/api/v1/produtos/risco-ruptura": {
-      "get": {
-        "tags": ["Produtos"],
-        "summary": "Lista produtos com risco ALTO de ruptura",
-        "security": [{ "bearerAuth": [] }],
-        "parameters": [
-          {
-            "name": "dias",
-            "in": "query",
-            "schema": { "type": "integer", "default": 30 }
-          },
-          {
-            "name": "limite_dias",
-            "in": "query",
-            "schema": { "type": "integer", "default": 7 }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Produtos em risco, ordenados do mais urgente"
-          }
         }
       }
     }

@@ -9,6 +9,7 @@ const fornecedorRoutes = require('./fornecedorRoutes');
 const produtoRoutes = require('./produtoRoutes');
 const movimentacaoRoutes = require('./movimentacaoRoutes');
 const historicoRoutes = require('./historicoRoutes');
+const dashboardRoutes = require('./dashboardRoutes');
 
 router.use('/auth', authRoutes);
 router.use('/usuarios', usuarioRoutes);
@@ -18,5 +19,6 @@ router.use('/fornecedores', fornecedorRoutes);
 router.use('/produtos', produtoRoutes);
 router.use('/movimentacoes', movimentacaoRoutes);
 router.use('/historico', historicoRoutes);
+router.use('/dashboard', dashboardRoutes);
 
 module.exports = router;

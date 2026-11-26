@@ -165,4 +165,56 @@ describe('MovimentacaoService', () => {
         .rejects.toThrow(expect.objectContaining({ statusCode: 404, code: 'MOVEMENT_NOT_FOUND' }));
     });
   });
+
+  describe('getVendasMensais', () => {
+    it('deve retornar os 12 meses consolidados, aceitando ano, categoria_id e produto_id', async () => {
+      movimentacaoRepository.getVendasMensais.mockResolvedValue([
+        { mes: 2, ano: 2026, total_saidas: '10', total_transacoes: 2 },
+        { mes: 5, ano: 2026, total_saidas: '120', total_transacoes: 8 },
+        { mes: 10, ano: 2026, total_saidas: '320', total_transacoes: 15 }
+      ]);
+
+      const result = await movimentacaoService.getVendasMensais({
+        ano: '2026',
+        categoria_id: '3',
+        produto_id: '7'
+      });
+
+      expect(movimentacaoRepository.getVendasMensais).toHaveBeenCalledWith({
+        ano: 2026,
+        categoria_id: 3,
+        produto_id: 7
+      });
+      expect(result.dadosMensais).toHaveLength(12);
+      expect(result.dadosMensais[0]).toEqual(expect.objectContaining({
+        mesNumero: 1,
+        mesNome: 'Jan',
+        totalSaidas: 0
+      }));
+      expect(result.mesMaisVendido).toEqual(expect.objectContaining({
+        mesNumero: 10,
+        mesNome: 'Out',
+        totalSaidas: 320
+      }));
+      expect(result.mesMenosVendido).toEqual(expect.objectContaining({
+        mesNumero: 2,
+        mesNome: 'Fev',
+        totalSaidas: 10
+      }));
+      expect(result.totalAnualSaidas).toBe(450);
+      expect(result.mediaMensal).toBe(37.5);
+    });
+
+    it('deve retornar mesMaisVendido e mesMenosVendido como null quando todas as saídas forem 0', async () => {
+      movimentacaoRepository.getVendasMensais.mockResolvedValue([]);
+
+      const result = await movimentacaoService.getVendasMensais({ ano: '2026' });
+
+      expect(result.dadosMensais).toHaveLength(12);
+      expect(result.mesMaisVendido).toBeNull();
+      expect(result.mesMenosVendido).toBeNull();
+      expect(result.totalAnualSaidas).toBe(0);
+      expect(result.mediaMensal).toBe(0);
+    });
+  });
 });

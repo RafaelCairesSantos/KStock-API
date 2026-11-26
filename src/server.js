@@ -11,11 +11,29 @@ const AppError = require('./utils/appError');
 
 const app = express();
 
+// Configuração de CORS com suporte a múltiplas origens em FRONTEND_URL e fallback seguro
+const rawOrigins = process.env.FRONTEND_URL
+  ? process.env.FRONTEND_URL.split(',').map(o => o.trim().replace(/\/+$/, '')).filter(Boolean)
+  : ['http://localhost:5173'];
+
+const allowedOrigins =
+  process.env.NODE_ENV !== 'production' && !rawOrigins.includes('http://localhost:5173')
+    ? [...rawOrigins, 'http://localhost:5173']
+    : rawOrigins;
+
 // Middlewares Globais de Segurança e Utilidades
 app.use(helmet({
   contentSecurityPolicy: false // Permite renderização correta do Swagger UI
 }));
-app.use(cors());
+app.use(cors({
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+    return callback(new AppError(`Origem ${origin} não permitida pela política de CORS.`, 403, 'CORS_NOT_ALLOWED'));
+  },
+  credentials: true
+}));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 

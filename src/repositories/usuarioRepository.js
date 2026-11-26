@@ -105,6 +105,11 @@ class UsuarioRepository {
     return true;
   }
 
+  async countByPerfil(perfil) {
+    const [rows] = await query('SELECT COUNT(*) as total FROM usuario WHERE perfil = ?', [perfil]);
+    return rows[0].total;
+  }
+
   async delete(id) {
     const [result] = await query('DELETE FROM usuario WHERE id = ?', [id]);
     return result.affectedRows > 0;

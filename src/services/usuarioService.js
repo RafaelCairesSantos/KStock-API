@@ -99,7 +99,15 @@ class UsuarioService {
       throw new AppError('Não é permitido excluir o próprio usuário logado.', 400, 'CANNOT_DELETE_SELF');
     }
 
-    await this.getUserById(id);
+    const user = await this.getUserById(id);
+
+    if ((user.perfil || '').toUpperCase() === 'ADMIN') {
+      const totalAdmins = await usuarioRepository.countByPerfil('ADMIN');
+      if (Number(totalAdmins) <= 1) {
+        throw new AppError('Não é possível excluir o único administrador do sistema.', 400, 'LAST_ADMIN_PROTECTION');
+      }
+    }
+
     return await usuarioRepository.delete(id);
   }
 }
